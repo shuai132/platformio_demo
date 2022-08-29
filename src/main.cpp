@@ -15,13 +15,13 @@
 #include <Arduino_ST7789.h> // Hardware-specific library for ST7789 (with or without CS pin)
 #include <SPI.h>
 
-//#define TEST_PIN    GPIO_NUM_5
+//#define TEST_PIN    GPIO_NUM_9
 
-#define TFT_DC    GPIO_NUM_19
-#define TFT_RST   GPIO_NUM_9
+#define TFT_DC    GPIO_NUM_18
+#define TFT_RST   GPIO_NUM_10
 //#define TFT_CS    10 // only for displays with CS pin
-#define TFT_MOSI  GPIO_NUM_7   // for hardware SPI data pin (all of available pins)
-#define TFT_SCLK  GPIO_NUM_6   // for hardware SPI sclk pin (all of available pins)
+#define TFT_MOSI  GPIO_NUM_9   // for hardware SPI data pin (all of available pins)
+#define TFT_SCLK  GPIO_NUM_8   // for hardware SPI sclk pin (all of available pins)
 
 //You can use different type of hardware initialization
 //using hardware SPI (11, 13 on UNO; 51, 52 on MEGA; ICSP-4, ICSP-3 on DUE and etc)
@@ -215,12 +215,9 @@ void mediabuttons() {
 }
 
 
-extern "C" void app_main2(void);
-
 void setup(void) {
     Serial.begin(115200);
     Serial.print("Hello! ST7789 TFT Test");
-    app_main2();
 
 #ifdef TEST_PIN
     pinMode(TEST_PIN, OUTPUT);
