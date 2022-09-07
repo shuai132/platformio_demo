@@ -1,6 +1,3 @@
 [submodule "lib/asio_net"]
 	path = lib/asio_net
 	url = git@github.com:shuai132/asio_net.git
-[submodule "lib/RpcCore"]
-	path = lib/RpcCore
-	url = git@github.com:shuai132/RpcCore.git

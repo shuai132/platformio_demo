@@ -2,21 +2,20 @@
 #include <IPv6Address.h>
 #include <WiFiAP.h>
 #include <WiFiSTA.h>
+#include <esp_pthread.h>
 
-#include "RpcCore.hpp"
-#include "tcp_server.hpp"
+#include "log.h"
+#include "rpc_server.hpp"
 
 using namespace RpcCore;
 using namespace asio_net;
-
-#define LOG_TAG "main"
 
 #define WIFI_USE_AP
 //#define WIFI_USE_STA
 
 asio::io_context context;
 std::shared_ptr<RpcCore::Rpc> rpc;
-std::unique_ptr<tcp_server> server;
+std::unique_ptr<rpc_server> server;
 
 #ifdef WIFI_USE_AP
 static WiFiAPClass wifiAP;
@@ -59,55 +58,42 @@ static void dumpWiFiInfo() {
 #endif
 
 static void initRpcTask() {
-  rpc->subscribe("hello", [] {
-    return "world";
+  rpc->subscribe<RpcCore::String, RpcCore::String>("cmd", [](const RpcCore::String& data) {
+    LOGI("from rpc: %s", data.c_str());
+    return data;
   });
 }
 
 void setup() {
   Serial.begin(115200);
-  pinMode(BLINK_LED, OUTPUT);
 
   initWiFi();
 
+  esp_pthread_cfg_t cfg{1024 * 40, 5, false, "rpc", tskNO_AFFINITY};
+  esp_pthread_set_cfg(&cfg);
   std::thread([] {
-    context.poll();
+    server = std::make_unique<rpc_server>(context, 8080);
+    server->on_session = [](const std::weak_ptr<rpc_session>& ws) {
+      LOGD("on_session");
+
+      if (rpc) return;
+
+      auto session = ws.lock();
+      session->on_close = [] {
+        LOGD("session: on_close");
+        rpc = nullptr;
+      };
+
+      rpc = session->rpc;
+      initRpcTask();
+    };
+    LOGD("asio running...");
+    server->start(true);
   }).detach();
-
-  server = std::make_unique<tcp_server>(context, 8080);
-
-  server->on_session = [](const std::weak_ptr<tcp_session>& ws) {
-    ESP_LOGE(LOG_TAG, "on_session:\n");
-
-    if (rpc) return;
-
-    rpc = RpcCore::Rpc::create();
-    rpc->setTimer([](uint32_t ms, RpcCore::Rpc::TimeoutCb cb) {
-      auto timer = std::make_shared<asio::steady_timer>(context);
-      timer->expires_after(std::chrono::milliseconds(ms));
-      timer->async_wait([timer = std::move(timer), cb = std::move(cb)](asio::error_code) {
-        cb();
-      });
-    });
-    rpc->getConn()->sendPackageImpl = [ws](std::string data) {
-      ws.lock()->send(std::move(data));
-    };
-
-    auto session = ws.lock();
-    session->on_close = [] {
-      ESP_LOGE(LOG_TAG, "session on_close:\n");
-      rpc = nullptr;
-    };
-    session->on_data = [ws](std::string data) {
-      ESP_LOGE(LOG_TAG, "session on_data: %s\n", data.c_str());
-      rpc->getConn()->onRecvPackage(std::move(data));
-    };
-
-    initRpcTask();
-  };
 }
 
 void loop() {
+  LOGD("loop...");
   delay(3000);
   dumpWiFiInfo();
 }
