@@ -76,7 +76,10 @@ void setup() {
     server->on_session = [](const std::weak_ptr<rpc_session>& ws) {
       LOGD("on_session");
 
-      if (rpc) return;
+      if (rpc) {
+        ws.lock()->close();
+        return;
+      }
 
       auto session = ws.lock();
       session->on_close = [] {
