@@ -6,6 +6,7 @@
 
 #include "log.h"
 #include "rpc_server.hpp"
+#include "server_discovery.hpp"
 
 using namespace RpcCore;
 using namespace asio_net;
@@ -13,9 +14,9 @@ using namespace asio_net;
 #define WIFI_USE_AP
 //#define WIFI_USE_STA
 
-asio::io_context context;
-std::shared_ptr<RpcCore::Rpc> rpc;
-std::unique_ptr<rpc_server> server;
+static const short PORT = 8080;
+
+static std::shared_ptr<RpcCore::Rpc> rpc;
 
 #ifdef WIFI_USE_AP
 static WiFiAPClass wifiAP;
@@ -44,6 +45,10 @@ static void dumpWiFiInfo() {
   Serial.print("softAP StationNum: ");
   Serial.println(wifiAP.softAPgetStationNum());
 }
+
+std::string getIp() {
+  return wifiAP.softAPIP().toString().c_str();
+}
 #endif
 
 #ifdef WIFI_USE_STA
@@ -54,6 +59,9 @@ static void initWiFi() {
 static void dumpWiFiInfo() {
   Serial.println("myip:");
   Serial.println(wifiSTA.localIP());
+}
+std::string getIp() {
+  return wifiSTA.localIP().toString().c_str();
 }
 #endif
 
@@ -68,11 +76,17 @@ void setup() {
   Serial.begin(115200);
 
   initWiFi();
+  dumpWiFiInfo();
 
   esp_pthread_cfg_t cfg{1024 * 40, 5, false, "rpc", tskNO_AFFINITY};
   esp_pthread_set_cfg(&cfg);
   std::thread([] {
-    server = std::make_unique<rpc_server>(context, 8080);
+    asio::io_context context;
+    std::unique_ptr<rpc_server> server;
+
+    server_discovery::sender sender(context, "ip", getIp() + ":" + std::to_string(PORT));
+
+    server = std::make_unique<rpc_server>(context, PORT);
     server->on_session = [](const std::weak_ptr<rpc_session>& ws) {
       LOGD("on_session");
 
@@ -96,7 +110,5 @@ void setup() {
 }
 
 void loop() {
-  LOGD("loop...");
-  delay(3000);
-  dumpWiFiInfo();
+  delay(1000);
 }
