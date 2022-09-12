@@ -1,6 +1,8 @@
+#include <DNSServer.h>
+#include <ESP_WiFiManager.h>
 #include <HardwareSerial.h>
 #include <IPv6Address.h>
-#include <WiFiAP.h>
+#include <WiFi.h>
 #include <WiFiSTA.h>
 #include <esp_pthread.h>
 
@@ -11,59 +13,36 @@
 using namespace RpcCore;
 using namespace asio_net;
 
-#define WIFI_USE_AP
-//#define WIFI_USE_STA
-
+static ESP_WiFiManager wifiManager;
+static std::shared_ptr<RpcCore::Rpc> rpc;
 static const short PORT = 8080;
 
-static std::shared_ptr<RpcCore::Rpc> rpc;
-
-#ifdef WIFI_USE_AP
-static WiFiAPClass wifiAP;
 static void initWiFi() {
-  wifiAP.softAP("ESP", "88888888");
+  LOGI("start wifi manager...");
+  // wifiManager.resetSettings();
+  wifiManager.setDebugOutput(true);
+  wifiManager.setTimeout(10);
+  wifiManager.autoConnect("001");
+
+  LOGI("check connect...");
+  if (!WiFi.isConnected()) {
+    LOGI("not connect, start ESP...");
+    WiFi.softAP("002", "1029384756");
+  }
 }
+
+static std::string getIp() {
+  if (WiFi.isConnected()) {
+    return WiFi.localIP().toString().c_str();
+  } else {
+    return WiFi.softAPIP().toString().c_str();
+  }
+}
+
 static void dumpWiFiInfo() {
-  Serial.print("AP IP address: ");
-  Serial.println(wifiAP.softAPIP());
-
-  Serial.print("softAP Broadcast IP: ");
-  Serial.println(wifiAP.softAPBroadcastIP());
-
-  Serial.print("softAP NetworkID: ");
-  Serial.println(wifiAP.softAPNetworkID());
-
-  Serial.print("softAP SubnetCIDR: ");
-  Serial.println(wifiAP.softAPSubnetCIDR());
-
-  Serial.print("softAP Hostname: ");
-  Serial.println(wifiAP.softAPgetHostname());
-
-  Serial.print("softAP macAddress: ");
-  Serial.println(wifiAP.softAPmacAddress());
-
-  Serial.print("softAP StationNum: ");
-  Serial.println(wifiAP.softAPgetStationNum());
+  LOGI("IP address: %s", getIp().c_str());
+  Serial.println();
 }
-
-std::string getIp() {
-  return wifiAP.softAPIP().toString().c_str();
-}
-#endif
-
-#ifdef WIFI_USE_STA
-static WiFiSTAClass wifiSTA;
-static void initWiFi() {
-  wifiSTA.begin("MI9", "88888888");
-}
-static void dumpWiFiInfo() {
-  Serial.println("myip:");
-  Serial.println(wifiSTA.localIP());
-}
-std::string getIp() {
-  return wifiSTA.localIP().toString().c_str();
-}
-#endif
 
 static void initRpcTask() {
   rpc->subscribe<RpcCore::String, RpcCore::String>("cmd", [](const RpcCore::String& data) {
@@ -75,9 +54,11 @@ static void initRpcTask() {
 void setup() {
   Serial.begin(115200);
 
+  // config wifi
   initWiFi();
   dumpWiFiInfo();
 
+  // start rpc task
   esp_pthread_cfg_t cfg{1024 * 40, 5, false, "rpc", tskNO_AFFINITY};
   esp_pthread_set_cfg(&cfg);
   std::thread([] {
