@@ -6,6 +6,7 @@
 #include <WiFiSTA.h>
 #include <esp_pthread.h>
 
+#include "led.h"
 #include "log.h"
 #include "rpc_server.hpp"
 #include "server_discovery.hpp"
@@ -49,6 +50,24 @@ static void initRpcTask() {
     LOGI("from rpc: %s", data.c_str());
     return data;
   });
+  rpc->subscribe<Void, RpcCore::Struct<LEDState>>("getState", [](const Void&) {
+    auto s = ledGetState();
+    LOGI("getState: %d, %d, %d, %d", s.led1, s.led2, s.led3, s.led4);
+    return s;
+  });
+  rpc->subscribe<RpcCore::Struct<LEDState>>("setState", [](const RpcCore::Struct<LEDState>& data) {
+    auto s = data.value;
+    LOGI("setState: %d, %d, %d, %d", s.led1, s.led2, s.led3, s.led4);
+    ledSetState(s);
+  });
+  rpc->subscribe("on", [] {
+    LOGI("set on");
+    ledOn();
+  });
+  rpc->subscribe("off", [] {
+    LOGI("set off");
+    ledOff();
+  });
 }
 
 void setup() {
@@ -57,6 +76,9 @@ void setup() {
   // config wifi
   initWiFi();
   dumpWiFiInfo();
+
+  // io init
+  ledInit();
 
   // start rpc task
   esp_pthread_cfg_t cfg{1024 * 40, 5, false, "rpc", tskNO_AFFINITY};
