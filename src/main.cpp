@@ -59,9 +59,12 @@ static void initRpcTask() {
     auto s = data.value;
     LOGI("setState: %d, %d, %d, %d", s.led1, s.led2, s.led3, s.led4);
     ledSetState(s);
+    ledOff();
+    ledOn();
   });
   rpc->subscribe("on", [] {
     LOGI("set on");
+    ledOff();
     ledOn();
   });
   rpc->subscribe("off", [] {
