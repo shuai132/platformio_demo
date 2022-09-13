@@ -6,6 +6,8 @@
 #include <WiFiSTA.h>
 #include <esp_pthread.h>
 
+#include <nvs_handle.hpp>
+
 #include "led.h"
 #include "log.h"
 #include "rpc_server.hpp"
@@ -17,6 +19,8 @@ using namespace asio_net;
 static ESP_WiFiManager wifiManager;
 static std::shared_ptr<RpcCore::Rpc> rpc;
 static const short PORT = 8080;
+
+const static char* NS_NAME_MISC = "misc";
 
 static void initWiFi() {
   LOGI("start wifi manager...");
@@ -61,6 +65,12 @@ static void initRpcTask() {
     ledSetState(s);
     ledOff();
     ledOn();
+
+    {
+      auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
+      nvs->set_blob("led_state", &s, sizeof(s));
+      nvs->commit();
+    }
   });
   rpc->subscribe("on", [] {
     LOGI("set on");
@@ -75,6 +85,19 @@ static void initRpcTask() {
 
 void setup() {
   Serial.begin(115200);
+
+  // nvs
+  {
+    auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
+    LEDState state{};
+    bool on = false;
+    nvs->get_blob("led_state", &state, sizeof(state));
+    nvs->get_item("led_on_boot", on);
+    ledSetState(state);
+    if (on) {
+      ledOn();
+    }
+  }
 
   // config wifi
   initWiFi();
