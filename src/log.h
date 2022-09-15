@@ -1,27 +1,27 @@
 /**
-* 统一控制调试信息
-* 为了保证输出顺序 都使用stdout而不是stderr
-*
-* 可配置项（默认都是未定义）
-* LOG_NDEBUG               关闭LOGD的输出
-* LOG_SHOW_VERBOSE         显示LOGV的输出
-* LOG_DISABLE_COLOR        禁用颜色显示
-* LOG_LINE_END_CRLF        默认是\n结尾 添加此宏将以\r\n结尾
-* LOG_FOR_MCU              MCU项目可配置此宏 更适用于MCU环境
-* LOG_NOT_EXIT_ON_FATAL    FATAL默认退出程序 添加此宏将不退出
-*
-* 其他配置项
-* LOG_PRINTF_IMPL          定义输出实现（默认使用printf）
-* 并添加形如int LOG_PRINTF_IMPL(const char *fmt, ...)的实现
-*
-* 在库中使用时
-* 1. 修改此文件中的`LOG`以包含库名前缀（全部替换即可）
-* 2. 取消这行注释: #define LOG_IN_LIB
-* 库中可配置项
-* LOG_SHOW_DEBUG           开启LOGD的输出
-*
-* 非库中使用时
-* LOGD的输出在debug时打开 release时关闭（依据NDEBUG宏）
+ * 统一控制调试信息
+ * 为了保证输出顺序 都使用stdout而不是stderr
+ *
+ * 可配置项（默认都是未定义）
+ * LOG_NDEBUG               关闭LOGD的输出
+ * LOG_SHOW_VERBOSE         显示LOGV的输出
+ * LOG_DISABLE_COLOR        禁用颜色显示
+ * LOG_LINE_END_CRLF        默认是\n结尾 添加此宏将以\r\n结尾
+ * LOG_FOR_MCU              MCU项目可配置此宏 更适用于MCU环境
+ * LOG_NOT_EXIT_ON_FATAL    FATAL默认退出程序 添加此宏将不退出
+ *
+ * 其他配置项
+ * LOG_PRINTF_IMPL          定义输出实现（默认使用printf）
+ * 并添加形如int LOG_PRINTF_IMPL(const char *fmt, ...)的实现
+ *
+ * 在库中使用时
+ * 1. 修改此文件中的`LOG`以包含库名前缀（全部替换即可）
+ * 2. 取消这行注释: #define LOG_IN_LIB
+ * 库中可配置项
+ * LOG_SHOW_DEBUG           开启LOGD的输出
+ *
+ * 非库中使用时
+ * LOGD的输出在debug时打开 release时关闭（依据NDEBUG宏）
  */
 
 #pragma once
@@ -91,7 +91,7 @@
 
 #if __ANDROID__
 #include <android/log.h>
-#define LOG_PRINTF(...)         __android_log_print(ANDROID_LOG_DEBUG, "LOG", __VA_ARGS__)
+#define LOG_PRINTF(...)         __android_log_print(ANDROID_L##OG_DEBUG, "LOG", __VA_ARGS__)
 #else
 #define LOG_PRINTF(...)         printf(__VA_ARGS__)
 #endif
