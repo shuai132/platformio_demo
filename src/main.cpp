@@ -52,10 +52,6 @@ static void dumpWiFiInfo() {
 }
 
 static void initRpcTask(asio::io_context& context) {
-  rpc->subscribe<RpcCore::String, RpcCore::String>("cmd", [](const RpcCore::String& data) {
-    LOGI("from rpc: %s", data.c_str());
-    return data;
-  });
   rpc->subscribe<Void, RpcCore::Struct<AllState>>("getState", [](const Void&) {
     AllState state{
         .ledState = ledGetState(),
@@ -124,28 +120,29 @@ static void initRpcTask(asio::io_context& context) {
 void setup() {
   Serial.begin(115200);
 
+  // led init
+  ledInit();
+
   // nvs
   {
     auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
     LEDState state{};
-    bool on = false;
     nvs->get_blob("led_state", &state, sizeof(state));
-    nvs->get_item("led_boot_on", on);
+    nvs->get_item("led_boot_on", ledBootOn);
     nvs->get_item("led_state_on", ledStateOn);
     ledSetState(state);
-    if (on) {
+    if (ledBootOn) {
       ledOn();
     }
     auto& s = state;
-    LOGI("init state: %d, %d, %d, %d, on: %d", s.led1, s.led2, s.led3, s.led4, on);
+    LOGI("init state: %d, %d, %d, %d", s.led1, s.led2, s.led3, s.led4);
+    LOGI("boot on: %d", ledBootOn);
+    LOGI("state on: %d", ledStateOn);
   }
 
   // config wifi
   initWiFi();
   dumpWiFiInfo();
-
-  // io init
-  ledInit();
 
   // start rpc task
   esp_pthread_cfg_t cfg{1024 * 40, 5, false, "rpc", tskNO_AFFINITY};
