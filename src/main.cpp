@@ -21,6 +21,7 @@ static std::shared_ptr<RpcCore::Rpc> rpc;
 static const short PORT = 8080;
 
 const static char* NS_NAME_MISC = "misc";
+static bool ledStateOn;
 
 static void initWiFi() {
   LOGI("start wifi manager...");
@@ -63,8 +64,10 @@ static void initRpcTask() {
     auto s = data.value;
     LOGI("setState: %d, %d, %d, %d", s.led1, s.led2, s.led3, s.led4);
     ledSetState(s);
-    ledOff();
-    ledOn();
+    if (ledStateOn) {
+      ledOff();
+      ledOn();
+    }
 
     {
       auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
@@ -88,6 +91,13 @@ static void initRpcTask() {
     nvs->set_item("led_boot_on", on);
     nvs->commit();
   });
+  rpc->subscribe<RpcCore::Raw<uint8_t>>("set_state_on", [](const RpcCore::Raw<uint8_t>& data) {
+    uint8_t on = data.value;
+    LOGI("set state on: %d", on);
+    auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
+    nvs->set_item("led_state_on", on);
+    nvs->commit();
+  });
 }
 
 void setup() {
@@ -100,6 +110,7 @@ void setup() {
     bool on = false;
     nvs->get_blob("led_state", &state, sizeof(state));
     nvs->get_item("led_boot_on", on);
+    nvs->get_item("led_state_on", ledStateOn);
     ledSetState(state);
     if (on) {
       ledOn();
