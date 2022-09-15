@@ -51,7 +51,7 @@ static void dumpWiFiInfo() {
   Serial.println();
 }
 
-static void initRpcTask() {
+static void initRpcTask(asio::io_context& context) {
   rpc->subscribe<RpcCore::String, RpcCore::String>("cmd", [](const RpcCore::String& data) {
     LOGI("from rpc: %s", data.c_str());
     return data;
@@ -106,6 +106,19 @@ static void initRpcTask() {
     nvs->commit();
     ledStateOn = on;
   });
+  rpc->subscribe<RpcCore::Raw<uint16_t>>("set_on_time", [&context](const RpcCore::Raw<uint16_t>& data) {
+    uint16_t sec = data.value;
+    LOGI("set on time: %d", sec);
+    auto timer = std::make_shared<asio::steady_timer>(context);
+    timer->expires_after(std::chrono::seconds(sec));
+    ledOff();
+    ledOn();
+    timer->async_wait([=](std::error_code e) mutable {
+      LOGI("timeout led off");
+      ledOff();
+      timer = nullptr;
+    });
+  });
 }
 
 void setup() {
@@ -144,7 +157,7 @@ void setup() {
     server_discovery::sender sender(context, "ip", getIp() + ":" + std::to_string(PORT));
 
     server = std::make_unique<rpc_server>(context, PORT);
-    server->on_session = [](const std::weak_ptr<rpc_session>& ws) {
+    server->on_session = [&context](const std::weak_ptr<rpc_session>& ws) {
       LOGD("on_session");
 
       if (rpc) {
@@ -159,7 +172,7 @@ void setup() {
       };
 
       rpc = session->rpc;
-      initRpcTask();
+      initRpcTask(context);
     };
     LOGD("asio running...");
     server->start(true);
