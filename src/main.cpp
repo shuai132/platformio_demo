@@ -21,6 +21,7 @@ static std::shared_ptr<RpcCore::Rpc> rpc;
 static const short PORT = 8080;
 
 const static char* NS_NAME_MISC = "misc";
+static bool ledBootOn;
 static bool ledStateOn;
 
 static void initWiFi() {
@@ -55,10 +56,15 @@ static void initRpcTask() {
     LOGI("from rpc: %s", data.c_str());
     return data;
   });
-  rpc->subscribe<Void, RpcCore::Struct<LEDState>>("getState", [](const Void&) {
-    auto s = ledGetState();
+  rpc->subscribe<Void, RpcCore::Struct<AllState>>("getState", [](const Void&) {
+    AllState state{
+        .ledState = ledGetState(),
+        .ledBootOn = ledBootOn,
+        .ledStateOn = ledStateOn,
+    };
+    const auto& s = state.ledState;
     LOGI("getState: %d, %d, %d, %d", s.led1, s.led2, s.led3, s.led4);
-    return s;
+    return state;
   });
   rpc->subscribe<RpcCore::Struct<LEDState>>("setState", [](const RpcCore::Struct<LEDState>& data) {
     auto s = data.value;
@@ -90,6 +96,7 @@ static void initRpcTask() {
     auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
     nvs->set_item("led_boot_on", on);
     nvs->commit();
+    ledBootOn = on;
   });
   rpc->subscribe<RpcCore::Raw<uint8_t>>("set_state_on", [](const RpcCore::Raw<uint8_t>& data) {
     uint8_t on = data.value;
@@ -97,6 +104,7 @@ static void initRpcTask() {
     auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
     nvs->set_item("led_state_on", on);
     nvs->commit();
+    ledStateOn = on;
   });
 }
 
