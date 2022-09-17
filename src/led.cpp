@@ -2,10 +2,10 @@
 
 #include <Arduino.h>
 
-#define LED_PIN_1 3
-#define LED_PIN_2 4
-#define LED_PIN_3 5
-#define LED_PIN_4 18
+#define LED_PIN_1 2
+#define LED_PIN_2 3
+#define LED_PIN_3 4
+#define LED_PIN_4 5
 
 #define LED_ON HIGH
 #define LED_OFF LOW
