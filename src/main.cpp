@@ -24,6 +24,8 @@ const static char* NS_NAME_MISC = "misc";
 static bool ledBootOn;
 static bool ledStateOn;
 
+#define ENABLE_AP_ONLY
+
 static void initBtn() {
   // check reset
   esp_pthread_cfg_t cfg{1024 * 40, 5, false, "btn", tskNO_AFFINITY};
@@ -42,6 +44,9 @@ static void initBtn() {
 }
 
 static void initWiFi() {
+#ifdef ENABLE_AP_ONLY
+  WiFi.softAP("002", "1029384756");
+#else
   LOGI("start wifi manager...");
   wifiManager.setDebugOutput(true);
   wifiManager.setTimeout(10);
@@ -52,6 +57,7 @@ static void initWiFi() {
     LOGI("not connect, start ESP...");
     WiFi.softAP("002", "1029384756");
   }
+#endif
 }
 
 static std::string getIp() {
