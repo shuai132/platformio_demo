@@ -24,9 +24,25 @@ const static char* NS_NAME_MISC = "misc";
 static bool ledBootOn;
 static bool ledStateOn;
 
+static void initBtn() {
+  // check reset
+  esp_pthread_cfg_t cfg{1024 * 40, 5, false, "btn", tskNO_AFFINITY};
+  esp_pthread_set_cfg(&cfg);
+  std::thread([] {
+    const auto pin = GPIO_NUM_9;
+    pinMode(pin, INPUT);
+    for (;;) {
+      if (digitalRead(pin) == 0) {
+        LOGI("reset wifi...");
+        wifiManager.resetSettings();
+      }
+      sleep(1);
+    }
+  }).detach();
+}
+
 static void initWiFi() {
   LOGI("start wifi manager...");
-  // wifiManager.resetSettings();
   wifiManager.setDebugOutput(true);
   wifiManager.setTimeout(10);
   wifiManager.autoConnect("001");
@@ -141,6 +157,7 @@ void setup() {
   }
 
   // config wifi
+  initBtn();
   initWiFi();
   dumpWiFiInfo();
 
