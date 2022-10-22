@@ -74,7 +74,7 @@ static void dumpWiFiInfo() {
 }
 
 static void initRpcTask(asio::io_context& context) {
-  rpc->subscribe<Void, RpcCore::Struct<AllState>>("getState", [](const Void&) {
+  rpc->subscribe("getState", [] {
     AllState state{
         .ledState = ledGetState(),
         .ledBootOn = ledBootOn,
@@ -82,9 +82,9 @@ static void initRpcTask(asio::io_context& context) {
     };
     const auto& s = state.ledState;
     LOGI("getState: %d, %d, %d, %d", s.led1, s.led2, s.led3, s.led4);
-    return state;
+    return RpcCore::Struct<AllState>(state);
   });
-  rpc->subscribe<RpcCore::Struct<LEDState>>("setState", [](const RpcCore::Struct<LEDState>& data) {
+  rpc->subscribe("setState", [](const RpcCore::Struct<LEDState>& data) {
     auto s = data.value;
     LOGI("setState: %d, %d, %d, %d", s.led1, s.led2, s.led3, s.led4);
     ledSetState(s);
@@ -108,7 +108,7 @@ static void initRpcTask(asio::io_context& context) {
     LOGI("set off");
     ledOff();
   });
-  rpc->subscribe<RpcCore::Raw<uint8_t>>("set_boot_on", [](const RpcCore::Raw<uint8_t>& data) {
+  rpc->subscribe("set_boot_on", [](const RpcCore::Raw<uint8_t>& data) {
     uint8_t on = data.value;
     LOGI("set boot on: %d", on);
     auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
@@ -116,7 +116,7 @@ static void initRpcTask(asio::io_context& context) {
     nvs->commit();
     ledBootOn = on;
   });
-  rpc->subscribe<RpcCore::Raw<uint8_t>>("set_state_on", [](const RpcCore::Raw<uint8_t>& data) {
+  rpc->subscribe("set_state_on", [](const RpcCore::Raw<uint8_t>& data) {
     uint8_t on = data.value;
     LOGI("set state on: %d", on);
     auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
@@ -124,7 +124,7 @@ static void initRpcTask(asio::io_context& context) {
     nvs->commit();
     ledStateOn = on;
   });
-  rpc->subscribe<RpcCore::Raw<uint16_t>>("set_on_time", [&context](const RpcCore::Raw<uint16_t>& data) {
+  rpc->subscribe("set_on_time", [&context](const RpcCore::Raw<uint16_t>& data) {
     uint16_t sec = data.value;
     LOGI("set on time: %d", sec);
     auto timer = std::make_shared<asio::steady_timer>(context);
