@@ -4,6 +4,8 @@
 #include <Wire.h>
 #include <lvgl.h>
 
+#include "sys/ioctl.h"
+#include "log.h"
 #include "lvgl/benchmark/lv_demo_benchmark.h"
 #include "lvgl/widgets/lv_demo_widgets.h"
 
@@ -39,25 +41,34 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
 }
 
 void setup() {
-  M5.begin(true, true, true, true);
+  LOGW("");
+  M5.begin(true, false, true, false);
+  LOGW("");
   tft.begin();
+  LOGW("");
   tft.setRotation(1);
+  LOGW("");
   M5.Axp.SetLcdVoltage(2800);
+  LOGW("");
   M5.Axp.SetLcdVoltage(3300);
   M5.Axp.SetBusPowerMode(0);
   M5.Axp.SetCHGCurrent(AXP192::kCHG_190mA);
   M5.Axp.SetLDOEnable(3, true);
+  LOGW("");
   delay(150);
   M5.Axp.SetLDOEnable(3, false);
   M5.Axp.SetLed(1);
   delay(100);
+  LOGW("");
   M5.Axp.SetLed(0);
   M5.Axp.SetLDOVoltage(3, 3300);
   M5.Axp.SetLed(1);
   //-------------------------------------------------------------------
-  lv_disp_draw_buf_init(&disp_buf, buf, nullptr, LV_HOR_RES_MAX * 10);
+  LOGW("");
   lv_init();
-
+  LOGW("");
+  lv_disp_draw_buf_init(&disp_buf, buf, nullptr, LV_HOR_RES_MAX * 10);
+  LOGW("");
   //-------------------------------------------------------------------
   /*Initialize the display*/
   lv_disp_drv_t disp_drv;
