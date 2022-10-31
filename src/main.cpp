@@ -41,37 +41,27 @@ void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color
 }
 
 void setup() {
-  LOGW("");
   M5.begin(true, false, true, false);
-  LOGW("");
   tft.begin();
-  LOGW("");
   tft.setRotation(1);
-  LOGW("");
   M5.Axp.SetLcdVoltage(2800);
-  LOGW("");
   M5.Axp.SetLcdVoltage(3300);
   M5.Axp.SetBusPowerMode(0);
   M5.Axp.SetCHGCurrent(AXP192::kCHG_190mA);
   M5.Axp.SetLDOEnable(3, true);
-  LOGW("");
   delay(150);
   M5.Axp.SetLDOEnable(3, false);
   M5.Axp.SetLed(1);
   delay(100);
-  LOGW("");
   M5.Axp.SetLed(0);
   M5.Axp.SetLDOVoltage(3, 3300);
   M5.Axp.SetLed(1);
   //-------------------------------------------------------------------
-  LOGW("");
   lv_init();
-  LOGW("");
   lv_disp_draw_buf_init(&disp_buf, buf, nullptr, LV_HOR_RES_MAX * 10);
-  LOGW("");
   //-------------------------------------------------------------------
   /*Initialize the display*/
-  lv_disp_drv_t disp_drv;
+  static lv_disp_drv_t disp_drv;
   lv_disp_drv_init(&disp_drv);
   disp_drv.hor_res = LV_HOR_RES_MAX;
   disp_drv.ver_res = LV_VER_RES_MAX;
@@ -81,7 +71,7 @@ void setup() {
 
   //-------------------------------------------------------------------
   /*Initialize the (dummy) input device driver*/
-  lv_indev_drv_t indev_drv;
+  static lv_indev_drv_t indev_drv;
   lv_indev_drv_init(&indev_drv);
   indev_drv.type = LV_INDEV_TYPE_POINTER;
   indev_drv.read_cb = my_touchpad_read;
