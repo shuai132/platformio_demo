@@ -1,47 +1,30 @@
-#include <DNSServer.h>
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
 #include <ESP_WiFiManager.h>
 #include <HardwareSerial.h>
-#include <IPv6Address.h>
-#include <WiFi.h>
-#include <WiFiSTA.h>
-#include <esp_pthread.h>
 
-#include <nvs_handle.hpp>
-
-#include "led.h"
+#include "SimpleTimer.h"
 #include "log.h"
+#include "rpc_client.hpp"
 #include "rpc_server.hpp"
-#include "server_discovery.hpp"
 
 using namespace RpcCore;
-using namespace asio_net;
+using namespace esp_rpc;
+
+static SimpleTimer timer;
+
+namespace esp_rpc {
+void setTimeout(uint32_t ms, std::function<void()> cb) {
+  timer.setTimeout(ms, std::move(cb));
+}
+}  // namespace esp_rpc
 
 static ESP_WiFiManager wifiManager;
+static std::unique_ptr<rpc_server> server;
 static std::shared_ptr<RpcCore::Rpc> rpc;
 static const short PORT = 8080;
 
-const static char* NS_NAME_MISC = "misc";
-static bool ledBootOn;
-static bool ledStateOn;
-
 #define ENABLE_AP_ONLY
-
-static void initBtn() {
-  // check reset
-  esp_pthread_cfg_t cfg{1024 * 40, 5, false, "btn", tskNO_AFFINITY};
-  esp_pthread_set_cfg(&cfg);
-  std::thread([] {
-    const auto pin = GPIO_NUM_9;
-    pinMode(pin, INPUT);
-    for (;;) {
-      if (digitalRead(pin) == 0) {
-        LOGI("reset wifi...");
-        wifiManager.resetSettings();
-      }
-      sleep(1);
-    }
-  }).detach();
-}
 
 static void initWiFi() {
 #ifdef ENABLE_AP_ONLY
@@ -73,132 +56,54 @@ static void dumpWiFiInfo() {
   Serial.println();
 }
 
-static void initRpcTask(asio::io_context& context) {
-  rpc->subscribe("getState", [] {
-    AllState state{
-        .ledState = ledGetState(),
-        .ledBootOn = ledBootOn,
-        .ledStateOn = ledStateOn,
-    };
-    const auto& s = state.ledState;
-    LOGI("getState: %d, %d, %d, %d", s.led1, s.led2, s.led3, s.led4);
-    return RpcCore::Struct<AllState>(state);
+static void initRpcTask() {
+  rpc->subscribe("cmd", [](const RpcCore::String& data) -> RpcCore::String {
+    LOGI("get cmd: cmd: %s", data.c_str());
+    return "world";
   });
-  rpc->subscribe("setState", [](const RpcCore::Struct<LEDState>& data) {
-    auto s = data.value;
-    LOGI("setState: %d, %d, %d, %d", s.led1, s.led2, s.led3, s.led4);
-    ledSetState(s);
-    if (ledStateOn) {
-      ledOff();
-      ledOn();
-    }
+}
 
-    {
-      auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
-      nvs->set_blob("led_state", &s, sizeof(s));
-      nvs->commit();
-    }
-  });
-  rpc->subscribe("on", [] {
-    LOGI("set on");
-    ledOff();
-    ledOn();
-  });
-  rpc->subscribe("off", [] {
-    LOGI("set off");
-    ledOff();
-  });
-  rpc->subscribe("set_boot_on", [](const RpcCore::Raw<uint8_t>& data) {
-    uint8_t on = data.value;
-    LOGI("set boot on: %d", on);
-    auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
-    nvs->set_item("led_boot_on", on);
-    nvs->commit();
-    ledBootOn = on;
-  });
-  rpc->subscribe("set_state_on", [](const RpcCore::Raw<uint8_t>& data) {
-    uint8_t on = data.value;
-    LOGI("set state on: %d", on);
-    auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
-    nvs->set_item("led_state_on", on);
-    nvs->commit();
-    ledStateOn = on;
-  });
-  rpc->subscribe("set_on_time", [&context](const RpcCore::Raw<uint16_t>& data) {
-    uint16_t sec = data.value;
-    LOGI("set on time: %d", sec);
-    auto timer = std::make_shared<asio::steady_timer>(context);
-    timer->expires_after(std::chrono::seconds(sec));
-    ledOff();
-    ledOn();
-    timer->async_wait([=](std::error_code e) mutable {
-      LOGI("timeout led off");
-      ledOff();
-      timer = nullptr;
-    });
-  });
+static void client_test() {
+  // client
+  rpc_client client;
+  client.on_open = [&](const std::shared_ptr<RpcCore::Rpc>& rpc) {
+    rpc->cmd("cmd")->msg(RpcCore::String("hello"))->rsp([&](const RpcCore::String& data) {})->call();
+  };
+  client.on_close = [&] {};
+  client.open("localhost", std::to_string(PORT));
 }
 
 void setup() {
   Serial.begin(115200);
 
-  // led init
-  ledInit();
-
-  // nvs
-  {
-    auto nvs = nvs::open_nvs_handle(NS_NAME_MISC, NVS_READWRITE);
-    LEDState state{};
-    nvs->get_blob("led_state", &state, sizeof(state));
-    nvs->get_item("led_boot_on", ledBootOn);
-    nvs->get_item("led_state_on", ledStateOn);
-    ledSetState(state);
-    if (ledBootOn) {
-      ledOn();
-    }
-    auto& s = state;
-    LOGI("init state: %d, %d, %d, %d", s.led1, s.led2, s.led3, s.led4);
-    LOGI("boot on: %d", ledBootOn);
-    LOGI("state on: %d", ledStateOn);
-  }
-
   // config wifi
-  initBtn();
   initWiFi();
   dumpWiFiInfo();
 
   // start rpc task
-  esp_pthread_cfg_t cfg{1024 * 40, 5, false, "rpc", tskNO_AFFINITY};
-  esp_pthread_set_cfg(&cfg);
-  std::thread([] {
-    asio::io_context context;
-    std::unique_ptr<rpc_server> server;
+  server = std::make_unique<rpc_server>(PORT);
+  server->on_session = [](const std::weak_ptr<rpc_session>& ws) {
+    LOGD("on_session");
 
-    server_discovery::sender sender(context, "ip", getIp() + ":" + std::to_string(PORT));
+    if (rpc) {
+      LOGD("rpc exist, will close new session");
+      ws.lock()->close();
+      return;
+    }
 
-    server = std::make_unique<rpc_server>(context, PORT);
-    server->on_session = [&context](const std::weak_ptr<rpc_session>& ws) {
-      LOGD("on_session");
-
-      if (rpc) {
-        ws.lock()->close();
-        return;
-      }
-
-      auto session = ws.lock();
-      session->on_close = [] {
-        LOGD("session: on_close");
-        rpc = nullptr;
-      };
-
-      rpc = session->rpc;
-      initRpcTask(context);
+    auto session = ws.lock();
+    session->on_close = [] {
+      LOGD("session: on_close");
+      rpc = nullptr;
     };
-    LOGD("asio running...");
-    server->start(true);
-  }).detach();
+
+    rpc = session->rpc;
+    initRpcTask();
+  };
+  LOGD("rpc start...");
+  server->start();
 }
 
 void loop() {
-  delay(1000);
+  timer.run();
 }
