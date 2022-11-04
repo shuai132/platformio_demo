@@ -1,4 +1,5 @@
 #include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
 #include <ESPAsyncTCP.h>
 #include <ESP_WiFiManager.h>
 #include <HardwareSerial.h>
@@ -11,8 +12,7 @@
 using namespace RpcCore;
 using namespace esp_rpc;
 
-// #define TEST_RPC_CLIENT
-// #define ENABLE_AP_ONLY
+#define TEST_RPC_CLIENT 0
 
 static SimpleTimer timer;
 static const short PORT = 8080;
@@ -25,10 +25,6 @@ void setTimeout(uint32_t ms, std::function<void()> cb) {
 
 // 启动函数
 static void test_rpc_client() {
-  static IPAddress StaticIP(192, 168, 178, 3);
-  static IPAddress Gateway(192, 168, 178, 1);
-  static IPAddress SubnetMask(255, 255, 255, 0);
-
   static char ssid[] = "MI9";
   static char pass[] = "88888888";
 
@@ -40,14 +36,12 @@ static void test_rpc_client() {
     Serial.println("STA_Mode is config successful");
   }
   Serial.println(::String(ssid) + " connecting");
-  WiFi.config(StaticIP, Gateway, SubnetMask);
   while (WiFi.status() != WL_CONNECTED) {
-    if (WiFi.status() == WL_DISCONNECTED) {
-      Serial.print(".");
-      delay(200);
-    }
+    Serial.print(".");
+    delay(200);
   }
-  Serial.println("WiFi connected");
+  MDNS.begin("esp");
+  Serial.println("\r\nWiFi connected");
   Serial.println(WiFi.localIP());
   Serial.println(WiFi.macAddress());
   Serial.println(WiFi.subnetMask());
@@ -57,21 +51,29 @@ static void test_rpc_client() {
 
   // rpc client
   static rpc_client client;
-  client.on_open = [&](const std::shared_ptr<RpcCore::Rpc>& rpc) {
+  static std::shared_ptr<RpcCore::Rpc> rpc;
+  client.on_open = [](std::shared_ptr<RpcCore::Rpc> rpc_) {
     LOGE("client: on_open");
+    rpc = std::move(rpc_);
     rpc->cmd("cmd")->msg(RpcCore::String("hello"))->rsp([&](const RpcCore::String& data) {})->call();
   };
   client.on_close = [] {
     LOGE("client: on_close");
+    rpc = nullptr;
   };
   client.on_open_failed = [](std::error_code ec) {
     LOGE("client: on_open_failed: %d", ec.value());
   };
-  LOGE("client: try open...");
-  client.open("192.168.178.115", PORT);
+
+  timer.setInterval(1000, [] {
+    if (rpc) return;
+    LOGE("client: try open...");
+    client.open("192.168.178.115", PORT);
+  });
 }
 
 static void test_rpc_server() {
+#define ENABLE_AP_ONLY
 #ifdef ENABLE_AP_ONLY
   WiFi.softAP("002", "1029384756");
 #else
@@ -132,11 +134,11 @@ static void test_rpc_server() {
 void setup() {
   Serial.begin(115200);
 
-#ifdef TEST_RPC_CLIENT
-  test_rpc_client();
-  return;
-#endif
-  test_rpc_server();
+  if (TEST_RPC_CLIENT) {  // NOLINT
+    test_rpc_client();
+  } else {
+    test_rpc_server();
+  }
 }
 
 void loop() {
