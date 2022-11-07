@@ -10,6 +10,7 @@
 #include <HardwareSerial.h>
 
 #include "SimpleTimer.h"
+#include "TaskQueue.h"
 #include "log.h"
 #include "rpc_client.hpp"
 #include "rpc_server.hpp"
@@ -19,20 +20,43 @@ using namespace esp_rpc;
 
 #define TEST_RPC_CLIENT 0
 
+// #define USE_HOME_WIFI
+#ifdef USE_HOME_WIFI
+static char ssid[] = "ChinaNet-GiES";
+static char pass[] = "6gj7qynr";
+#define IP_ADDR "192.168.1.234"
+#else
+static char ssid[] = "MI9";
+static char pass[] = "88888888";
+#define IP_ADDR "192.168.178.115"
+#endif
+
+static const short PORT = 6666;
+
 static SimpleTimer timer;
-static const short PORT = 8080;
+static TaskQueue taskQueue;
 
 namespace esp_rpc {
+void dispatch(std::function<void()> runnable) {
+  taskQueue.post(std::move(runnable));
+}
+
 void setTimeout(uint32_t ms, std::function<void()> cb) {
-  timer.setTimeout(ms, std::move(cb));
+  taskQueue.post([ms, cb = std::move(cb)]() mutable {
+    timer.setTimeout(ms, std::move(cb));
+  });
 }
 }  // namespace esp_rpc
 
-// 启动函数
-static void test_rpc_client() {
-  static char ssid[] = "MI9";
-  static char pass[] = "88888888";
+static void printThread(const char* str) {
+#ifdef ESP8266
+  LOGI("printThread: msg: %s, with isr: %d", str, ETS_INTR_WITHINISR());
+#elif defined(ESP32)
+  LOGI("printThread: msg: %s, task: %p", str, xTaskGetCurrentTaskHandle());
+#endif
+}
 
+static void test_rpc_client() {
   Serial.println("Start STA_Mode");
   WiFi.mode(WIFI_STA);
   if (WiFi.begin(ssid, pass) == WL_CONNECT_FAILED) {
@@ -59,21 +83,26 @@ static void test_rpc_client() {
   static std::shared_ptr<RpcCore::Rpc> rpc;
   client.on_open = [](std::shared_ptr<RpcCore::Rpc> rpc_) {
     LOGE("client: on_open");
+    printThread("on_open");
     rpc = std::move(rpc_);
     rpc->cmd("cmd")->msg(RpcCore::String("hello"))->rsp([&](const RpcCore::String& data) {})->call();
   };
   client.on_close = [] {
     LOGE("client: on_close");
+    printThread("on_close");
     rpc = nullptr;
   };
   client.on_open_failed = [](std::error_code ec) {
+    printThread("on_open_failed");
     LOGE("client: on_open_failed: %d", ec.value());
   };
 
-  timer.setInterval(1000, [] {
-    if (rpc) return;
-    LOGE("client: try open...");
-    client.open("192.168.178.115", PORT);
+  taskQueue.post([] {
+    timer.setInterval(1000, [] {
+      if (rpc) return;
+      LOGE("client: try open...");
+      client.open(IP_ADDR, PORT);
+    });
   });
 }
 
@@ -113,7 +142,7 @@ static void test_rpc_server() {
   server = std::make_unique<rpc_server>(PORT);
   server->on_session = [](const std::weak_ptr<rpc_session>& ws) {
     LOGI("on_session");
-
+    printThread("on_session");
     if (rpc) {
       LOGI("rpc exist, will close new session");
       ws.lock()->close();
@@ -138,7 +167,7 @@ static void test_rpc_server() {
 
 void setup() {
   Serial.begin(115200);
-
+  printThread("setup");
   if (TEST_RPC_CLIENT) {  // NOLINT
     test_rpc_client();
   } else {
@@ -147,5 +176,7 @@ void setup() {
 }
 
 void loop() {
+  taskQueue.poll();
   timer.run();
+  delay(10);
 }
