@@ -92,7 +92,7 @@ static void test_rpc_client() {
     printThread("on_close");
     rpc = nullptr;
   };
-  client.on_open_failed = [](std::error_code ec) {
+  client.on_open_failed = [](const std::error_code& ec) {
     printThread("on_open_failed");
     LOGE("client: on_open_failed: %d", ec.value());
   };
