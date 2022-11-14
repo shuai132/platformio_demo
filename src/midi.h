@@ -6,8 +6,10 @@
 struct NoteEvent {
   NoteEvent() = default;
   NoteEvent(uint8_t track, bool isOn, uint8_t key, uint16_t tickMs) : track(track), isOn(isOn), key(key), tickMs(tickMs) {}
-  uint8_t track = 0;
-  bool isOn = false;
+  struct {
+    bool isOn : 1;
+    uint8_t track : 7;
+  };
   uint8_t key = 0;
   uint16_t tickMs = 0;
 };
