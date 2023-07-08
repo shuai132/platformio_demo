@@ -1,10 +1,5 @@
 #pragma once
 
-#include "rpc_msg.h"
-
-void ledSetState(LEDState ledState);
-LEDState ledGetState();
-
-void ledInit();
-void ledOn();
-void ledOff();
+void led_init();
+void led_on();
+void led_off();
