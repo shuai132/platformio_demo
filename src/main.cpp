@@ -11,11 +11,10 @@
 #include "rpc_server.hpp"
 #include "server_discovery.hpp"
 
-using namespace RpcCore;
 using namespace asio_net;
 
 static ESP_WiFiManager wifiManager;
-static std::shared_ptr<RpcCore::Rpc> rpc;
+static std::shared_ptr<rpc_core::rpc> rpc;
 static const short PORT = 8080;
 
 #define ENABLE_AP_ONLY
