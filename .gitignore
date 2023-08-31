@@ -1,1 +1,5 @@
-.pio
+/.pio/
+/.idea/
+/.vscode/
+/build/
+/cmake-build-*/

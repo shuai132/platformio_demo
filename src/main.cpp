@@ -15,7 +15,7 @@
 #include "rpc_client.hpp"
 #include "rpc_server.hpp"
 
-using namespace RpcCore;
+using namespace rpc_core;
 using namespace esp_rpc;
 
 #define TEST_RPC_CLIENT 0
@@ -26,7 +26,7 @@ static char ssid[] = "ChinaNet-GiES";
 static char pass[] = "6gj7qynr";
 #define IP_ADDR "192.168.1.234"
 #else
-static char ssid[] = "MI9";
+static char ssid[] = "MI6";
 static char pass[] = "88888888";
 #define IP_ADDR "192.168.178.115"
 #endif
@@ -41,7 +41,7 @@ void dispatch(std::function<void()> runnable) {
   taskQueue.post(std::move(runnable));
 }
 
-void setTimeout(uint32_t ms, std::function<void()> cb) {
+void set_timeout(uint32_t ms, std::function<void()> cb) {
   taskQueue.post([ms, cb = std::move(cb)]() mutable {
     timer.setTimeout(ms, std::move(cb));
   });
@@ -80,12 +80,12 @@ static void test_rpc_client() {
 
   // rpc client
   static rpc_client client;
-  static std::shared_ptr<RpcCore::Rpc> rpc;
-  client.on_open = [](std::shared_ptr<RpcCore::Rpc> rpc_) {
+  static std::shared_ptr<rpc_core::rpc> rpc;
+  client.on_open = [](std::shared_ptr<rpc_core::rpc> rpc_) {
     LOGE("client: on_open");
     printThread("on_open");
     rpc = std::move(rpc_);
-    rpc->cmd("cmd")->msg(RpcCore::String("hello"))->rsp([&](const RpcCore::String& data) {})->call();
+    rpc->cmd("cmd")->msg(std::string("hello"))->rsp([&](const std::string& data) {})->call();
   };
   client.on_close = [] {
     LOGE("client: on_close");
@@ -136,7 +136,7 @@ static void test_rpc_server() {
 
   LOGI("start rpc server...");
   static std::unique_ptr<rpc_server> server;
-  static std::shared_ptr<RpcCore::Rpc> rpc;
+  static std::shared_ptr<rpc_core::rpc> rpc;
 
   // start rpc task
   server = std::make_unique<rpc_server>(PORT);
@@ -156,7 +156,7 @@ static void test_rpc_server() {
     };
 
     rpc = session->rpc;
-    rpc->subscribe("cmd", [](const RpcCore::String& data) -> RpcCore::String {
+    rpc->subscribe("cmd", [](const std::string& data) -> std::string {
       LOGI("get cmd: cmd: %s", data.c_str());
       return "world";
     });
