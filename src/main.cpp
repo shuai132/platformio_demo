@@ -19,6 +19,10 @@ static const short PORT = 8080;
 
 #define ENABLE_AP_ONLY
 
+uint32_t get_tid() {
+  return (uint32_t)xTaskGetCurrentTaskHandle();
+}
+
 static void initWiFi() {
 #ifdef ENABLE_AP_ONLY
   WiFi.softAP("002", "1029384756");
