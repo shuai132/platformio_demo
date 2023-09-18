@@ -8,8 +8,8 @@
 
 #include "led.h"
 #include "log.h"
-#include "rpc_server.hpp"
-#include "server_discovery.hpp"
+#include "asio_net/rpc_server.hpp"
+#include "asio_net/server_discovery.hpp"
 
 using namespace asio_net;
 
