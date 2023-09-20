@@ -48,11 +48,11 @@ void set_timeout(uint32_t ms, std::function<void()> cb) {
 }
 }  // namespace esp_rpc
 
-static void printThread(const char* str) {
+uint32_t get_tid() {
 #ifdef ESP8266
-  LOGI("printThread: msg: %s, with isr: %d", str, ETS_INTR_WITHINISR());
+  return ETS_INTR_WITHINISR();
 #elif defined(ESP32)
-  LOGI("printThread: msg: %s, task: %p", str, xTaskGetCurrentTaskHandle());
+  return (uint32_t)xTaskGetCurrentTaskHandle();
 #endif
 }
 
@@ -83,17 +83,14 @@ static void test_rpc_client() {
   static std::shared_ptr<rpc_core::rpc> rpc;
   client.on_open = [](std::shared_ptr<rpc_core::rpc> rpc_) {
     LOGE("client: on_open");
-    printThread("on_open");
     rpc = std::move(rpc_);
     rpc->cmd("cmd")->msg(std::string("hello"))->rsp([&](const std::string& data) {})->call();
   };
   client.on_close = [] {
     LOGE("client: on_close");
-    printThread("on_close");
     rpc = nullptr;
   };
   client.on_open_failed = [](const std::error_code& ec) {
-    printThread("on_open_failed");
     LOGE("client: on_open_failed: %d", ec.value());
   };
 
@@ -142,7 +139,6 @@ static void test_rpc_server() {
   server = std::make_unique<rpc_server>(PORT);
   server->on_session = [](const std::weak_ptr<rpc_session>& ws) {
     LOGI("on_session");
-    printThread("on_session");
     if (rpc) {
       LOGI("rpc exist, will close new session");
       ws.lock()->close();
@@ -167,7 +163,6 @@ static void test_rpc_server() {
 
 void setup() {
   Serial.begin(115200);
-  printThread("setup");
   if (TEST_RPC_CLIENT) {  // NOLINT
     test_rpc_client();
   } else {
