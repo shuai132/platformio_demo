@@ -6,10 +6,10 @@
 #include <WiFiSTA.h>
 #include <esp_pthread.h>
 
-#include "led.h"
-#include "log.h"
 #include "asio_net/rpc_server.hpp"
 #include "asio_net/server_discovery.hpp"
+#include "led.h"
+#include "log.h"
 
 using namespace asio_net;
 
@@ -72,38 +72,25 @@ void setup() {
   //  std::thread([] {
   //
   //  }).detach();
-  asio::io_context context;
-  std::unique_ptr<rpc_server> server;
+  rpc = rpc_core::rpc::create();
+  rpc->subscribe("on", [] {
+    LOGI("set on");
+    led_on();
+  });
+  rpc->subscribe("off", [] {
+    LOGI("set off");
+    led_off();
+  });
 
+  asio::io_context context;
   server_discovery::sender sender(context, "ip", getIp() + ":" + std::to_string(PORT));
 
-  server = std::make_unique<rpc_server>(context, PORT);
-  server->on_session = [](const std::weak_ptr<rpc_session>& ws) {
+  rpc_server server(context, PORT, rpc_config{.rpc = rpc});
+  server.on_session = [](const std::weak_ptr<rpc_session>& ws) {
     LOGD("on_session");
-
-    if (rpc) {
-      ws.lock()->close();
-      return;
-    }
-
-    auto session = ws.lock();
-    session->on_close = [] {
-      LOGD("session: on_close");
-      rpc = nullptr;
-    };
-
-    rpc = session->rpc;
-    rpc->subscribe("on", [] {
-      LOGI("set on");
-      led_on();
-    });
-    rpc->subscribe("off", [] {
-      LOGI("set off");
-      led_off();
-    });
   };
   LOGD("asio running...");
-  server->start(true);
+  server.start(true);
 }
 
 void loop() {
