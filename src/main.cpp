@@ -6,9 +6,11 @@
 #include <WiFiSTA.h>
 #include <esp_pthread.h>
 
+#define BITTLE   // Petoi 9 DOF robot dog: 1 on head + 8 on leg
+#define BiBoard  // ESP32 Board with 12 channels of built-in PWM for joints
+#include "OpenCat.h"
 #include "asio_net/rpc_server.hpp"
 #include "asio_net/server_discovery.hpp"
-#include "led.h"
 #include "log.h"
 
 using namespace asio_net;
@@ -56,43 +58,49 @@ static void dumpWiFiInfo() {
   Serial.println();
 }
 
+static void startRpcTask() {
+  LOGI("startRpcTask");
+  // start rpc task
+  esp_pthread_cfg_t cfg{1024 * 40, 5, false, "rpc", tskNO_AFFINITY};
+  esp_pthread_set_cfg(&cfg);
+  std::thread([] {
+    rpc = rpc_core::rpc::create();
+    rpc->subscribe("on", [] {
+      LOGI("set on");
+    });
+    rpc->subscribe("off", [] {
+      LOGI("set off");
+    });
+
+    asio::io_context context;
+    server_discovery::sender sender(context, "ip", getIp() + ":" + std::to_string(PORT));
+
+    rpc_server server(context, PORT, rpc_config{.rpc = rpc});
+    server.on_session = [](const std::weak_ptr<rpc_session>& ws) {
+      LOGD("on_session");
+    };
+    LOGD("asio running...");
+    server.start(true);
+  }).detach();
+}
+
 void setup() {
   Serial.begin(115200);
-
-  // led init
-  led_init();
 
   // config wifi
   initWiFi();
   dumpWiFiInfo();
 
-  //  // start rpc task
-  //  esp_pthread_cfg_t cfg{1024 * 40, 5, false, "rpc", tskNO_AFFINITY};
-  //  esp_pthread_set_cfg(&cfg);
-  //  std::thread([] {
-  //
-  //  }).detach();
-  rpc = rpc_core::rpc::create();
-  rpc->subscribe("on", [] {
-    LOGI("set on");
-    led_on();
-  });
-  rpc->subscribe("off", [] {
-    LOGI("set off");
-    led_off();
-  });
+  initRobot();
 
-  asio::io_context context;
-  server_discovery::sender sender(context, "ip", getIp() + ":" + std::to_string(PORT));
-
-  rpc_server server(context, PORT, rpc_config{.rpc = rpc});
-  server.on_session = [](const std::weak_ptr<rpc_session>& ws) {
-    LOGD("on_session");
-  };
-  LOGD("asio running...");
-  server.start(true);
+  startRpcTask();
 }
 
 void loop() {
-  LOGE("never get here");
+  if (!tQueue->cleared()) {
+    tQueue->popTask();
+  } else {
+    readSignal();
+  }
+  reaction();
 }
