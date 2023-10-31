@@ -67,8 +67,8 @@
 #define SOFTWARE_VERSION "B_230902"  // BiBoard + YYMMDD
 #define BIRTHMARK 'x'                // Send 'R' token to reset the birthmark in the EEPROM so that the robot will know to restart and reset
 
-#define BT_BLE    // toggle Bluetooth Low Energy (BLE）
-#define BT_SPP    // toggle Bluetooth Serial Port Profile (BT_SPP)
+//#define BT_BLE    // toggle Bluetooth Low Energy (BLE）
+//#define BT_SPP    // toggle Bluetooth Serial Port Profile (BT_SPP)
 #define GYRO_PIN  // toggle the Inertia Measurement Unit (IMU), i.e. the gyroscope
 
 #if defined BiBoard || defined BiBoard_V0_2

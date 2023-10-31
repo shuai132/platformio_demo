@@ -18,6 +18,7 @@ using namespace asio_net;
 static ESP_WiFiManager wifiManager;
 static std::shared_ptr<rpc_core::rpc> rpc;
 static const short PORT = 8080;
+static asio::io_context context;
 
 #define ENABLE_AP_ONLY
 
@@ -61,27 +62,25 @@ static void dumpWiFiInfo() {
 static void startRpcTask() {
   LOGI("startRpcTask");
   // start rpc task
-  esp_pthread_cfg_t cfg{1024 * 40, 5, false, "rpc", tskNO_AFFINITY};
-  esp_pthread_set_cfg(&cfg);
-  std::thread([] {
-    rpc = rpc_core::rpc::create();
-    rpc->subscribe("on", [] {
-      LOGI("set on");
-    });
-    rpc->subscribe("off", [] {
-      LOGI("set off");
-    });
+  rpc = rpc_core::rpc::create();
+  rpc->subscribe("on", [] {
+    LOGI("on");
+  });
+  rpc->subscribe("off", [] {
+    LOGI("off");
+  });
+  rpc->subscribe("cmd", [](const std::string& cmd) {
+    LOGI("cmd: %s", cmd.c_str());
+    tQueue->addTask('k', cmd.c_str());
+  });
 
-    asio::io_context context;
-    server_discovery::sender sender(context, "ip", getIp() + ":" + std::to_string(PORT));
-
-    rpc_server server(context, PORT, rpc_config{.rpc = rpc});
-    server.on_session = [](const std::weak_ptr<rpc_session>& ws) {
-      LOGD("on_session");
-    };
-    LOGD("asio running...");
-    server.start(true);
-  }).detach();
+  static server_discovery::sender sender(context, "ip", getIp() + ":" + std::to_string(PORT));
+  static rpc_server server(context, PORT, rpc_config{.rpc = rpc});
+  server.on_session = [](const std::weak_ptr<rpc_session>& ws) {
+    LOGD("on_session");
+  };
+  LOGD("asio running...");
+  server.start();
 }
 
 void setup() {
@@ -90,10 +89,9 @@ void setup() {
   // config wifi
   initWiFi();
   dumpWiFiInfo();
+  startRpcTask();
 
   initRobot();
-
-  startRpcTask();
 }
 
 void loop() {
@@ -103,4 +101,7 @@ void loop() {
     readSignal();
   }
   reaction();
+
+  context.poll();
+  context.restart();
 }
