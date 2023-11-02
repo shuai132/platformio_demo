@@ -55,15 +55,13 @@ static void startRpcTask() {
   LOGI("startRpcTask");
   // start rpc task
   rpc = rpc_core::rpc::create();
-  rpc->subscribe("on", [] {
-    LOGI("on");
-  });
-  rpc->subscribe("off", [] {
-    LOGI("off");
-  });
   rpc->subscribe("cmd", [](const std::string& cmd) {
     LOGI("cmd: %s", cmd.c_str());
     tQueue->addTask('k', cmd.c_str());
+  });
+  rpc->subscribe("cmd_raw", [](char cmd) {
+    LOGI("cmd_raw: %c", cmd);
+    tQueue->addTask(cmd, "");
   });
 }
 
