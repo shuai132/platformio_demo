@@ -15,35 +15,14 @@
 
 using namespace asio_net;
 
-static ESP_WiFiManager wifiManager;
+static std::unique_ptr<rpc_server> server;
+static std::unique_ptr<server_discovery::sender> sender;
 static std::shared_ptr<rpc_core::rpc> rpc;
 static const short PORT = 8080;
 static asio::io_context context;
 
-#define ENABLE_AP_ONLY
-
 uint32_t get_tid() {
   return (uint32_t)xTaskGetCurrentTaskHandle();
-}
-
-static void initWiFi() {
-#ifdef ENABLE_AP_ONLY
-  WiFi.softAP("002", "1029384756");
-#else
-  // LOGI("reset wifi...");
-  // wifiManager.resetSettings();
-
-  LOGI("start wifi manager...");
-  wifiManager.setDebugOutput(true);
-  wifiManager.setTimeout(10);
-  wifiManager.autoConnect("001");
-
-  LOGI("check connect...");
-  if (!WiFi.isConnected()) {
-    LOGI("not connect, start ESP...");
-    WiFi.softAP("002", "1029384756");
-  }
-#endif
 }
 
 static std::string getIp() {
@@ -54,9 +33,22 @@ static std::string getIp() {
   }
 }
 
-static void dumpWiFiInfo() {
-  LOGI("IP address: %s", getIp().c_str());
-  Serial.println();
+static void initWiFi() {
+  WiFi.setAutoReconnect(true);
+  WiFi.begin("MI6", "88888888");
+  WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
+    LOGI("wifi event: %d", event);
+    if (event != ARDUINO_EVENT_WIFI_STA_GOT_IP) return;
+
+    LOGI("wifi ip: %s", getIp().c_str());
+    server = std::make_unique<rpc_server>(context, PORT, rpc_config{.rpc = rpc});
+    server->on_session = [](const std::weak_ptr<rpc_session>& ws) {
+      LOGD("on_session");
+    };
+    LOGD("server running...");
+    server->start();
+    sender = std::make_unique<server_discovery::sender>(context, "ip", getIp());
+  });
 }
 
 static void startRpcTask() {
@@ -73,14 +65,6 @@ static void startRpcTask() {
     LOGI("cmd: %s", cmd.c_str());
     tQueue->addTask('k', cmd.c_str());
   });
-
-  static server_discovery::sender sender(context, "ip", getIp() + ":" + std::to_string(PORT));
-  static rpc_server server(context, PORT, rpc_config{.rpc = rpc});
-  server.on_session = [](const std::weak_ptr<rpc_session>& ws) {
-    LOGD("on_session");
-  };
-  LOGD("asio running...");
-  server.start();
 }
 
 void setup() {
@@ -88,7 +72,6 @@ void setup() {
 
   // config wifi
   initWiFi();
-  dumpWiFiInfo();
   startRpcTask();
 
   initRobot();
