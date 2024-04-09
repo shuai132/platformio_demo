@@ -35,7 +35,7 @@ static std::string getIp() {
 
 static void initWiFi() {
   WiFi.setAutoReconnect(true);
-  WiFi.begin("MI6", "88888888");
+  WiFi.begin("2.4G-Cidianbi1", "W1234567");
   WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
     LOGI("wifi event: %d", event);
     if (event != ARDUINO_EVENT_WIFI_STA_GOT_IP) return;
