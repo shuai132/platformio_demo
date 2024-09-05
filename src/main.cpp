@@ -1,19 +1,22 @@
-#include <DNSServer.h>
+#include <Adafruit_AHTX0.h>
+#include <Adafruit_Sensor.h>
+#include <ArduinoJson.h>
+#include <DHT.h>
+#include <HTTPClient.h>
 #include <HardwareSerial.h>
 #include <IPv6Address.h>
+#include <SPI.h>
 #include <WiFi.h>
 #include <WiFiSTA.h>
+#include <Wire.h>
 #include <esp_pthread.h>
 
-#include "asio_net/rpc_server.hpp"
-#include "asio_net/server_discovery.hpp"
-#include "led.h"
 #include "log.h"
+#include "sntp.h"
+#include "time_utils.h"
 
-using namespace asio_net;
-
-static std::shared_ptr<rpc_core::rpc> rpc;
-static const short PORT = 8080;
+static DHT dht(GPIO_NUM_10, DHT11);
+static Adafruit_AHTX0 aht;
 
 // #define ENABLE_AP_MODE
 
@@ -32,9 +35,8 @@ static void initWiFi() {
       esp_restart();
     }
     delay(1000);
-    LOGR(".");
+    LOG(".");
   }
-  LOGLN();
 #endif
 }
 
@@ -54,40 +56,69 @@ static void dumpWiFiInfo() {
 void setup() {
   Serial.begin(115200);
 
-  // led init
-  led_init();
+  // init
+  dht.begin();
+  Wire.begin(GPIO_NUM_7, GPIO_NUM_8);
+  aht.begin();
 
   // config wifi
   initWiFi();
   dumpWiFiInfo();
 
-  //  // start rpc task
-  //  esp_pthread_cfg_t cfg{1024 * 40, 5, false, "rpc", tskNO_AFFINITY};
-  //  esp_pthread_set_cfg(&cfg);
-  //  std::thread([] {
-  //
-  //  }).detach();
-  rpc = rpc_core::rpc::create();
-  rpc->subscribe("on", [] {
-    LOGI("set on");
-    led_on();
-  });
-  rpc->subscribe("off", [] {
-    LOGI("set off");
-    led_off();
-  });
+  // ntp
+  sntp_env_init();
+  sntp_obtain_time();
+}
 
-  asio::io_context context;
-  server_discovery::sender sender(context, "ip", getIp() + ":" + std::to_string(PORT));
+void push_data(float temperature, float humidity) {
+  JsonDocument doc;
+  doc["timestamps"] = utils::getTimestamps();
+  doc["temperature"] = temperature;
+  doc["humidity"] = humidity;
+  String json_str;
+  serializeJson(doc, json_str);
 
-  rpc_server server(context, PORT, rpc_config{.rpc = rpc});
-  server.on_session = [](const std::weak_ptr<rpc_session>& ws) {
-    LOGD("on_session");
-  };
-  LOGD("asio running...");
-  server.start(true);
+  HTTPClient client;
+  client.begin("http://thingsboard.cloud/api/v1/4oGxrTz1NVZeBrK2lqPp/telemetry");
+  client.addHeader("Content-Type", "application/json");
+  auto ret = client.POST(json_str);
+  LOGI("http ret: %d %s", ret, client.errorToString(ret).c_str());
+  client.end();
+}
+
+void process_dht() {
+  // Reading temperature or humidity takes about 250 milliseconds!
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+  // Read temperature as Fahrenheit (isFahrenheit = true)
+  float f = dht.readTemperature(true);
+
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(h) || isnan(t) || isnan(f)) {
+    Serial.println(F("Failed to read from DHT sensor!"));
+    return;
+  }
+
+  LOGI("Temperature: %f", t);
+  LOGI("humidity: %f", h);
+}
+
+void process_aht() {
+  sensors_event_t humidity, temp;
+  aht.getEvent(&humidity, &temp);  // populate temp and humidity objects with fresh data
+  LOGI("Temperature: %f", temp.temperature);
+  LOGI("humidity: %f", humidity.relative_humidity);
+
+  push_data(temp.temperature, humidity.relative_humidity);
 }
 
 void loop() {
-  LOGE("never get here");
+  delay(2000);
+
+  LOGI("process_dht");
+  process_dht();
+  LOGI("process_aht");
+  process_aht();
 }
