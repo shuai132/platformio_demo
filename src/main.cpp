@@ -1,5 +1,4 @@
 #include <DNSServer.h>
-#include <ESP_WiFiManager.h>
 #include <HardwareSerial.h>
 #include <IPv6Address.h>
 #include <WiFi.h>
@@ -13,33 +12,29 @@
 
 using namespace asio_net;
 
-static ESP_WiFiManager wifiManager;
 static std::shared_ptr<rpc_core::rpc> rpc;
 static const short PORT = 8080;
 
-#define ENABLE_AP_ONLY
+// #define ENABLE_AP_MODE
 
 uint32_t get_tid() {
   return (uint32_t)xTaskGetCurrentTaskHandle();
 }
 
 static void initWiFi() {
-#ifdef ENABLE_AP_ONLY
-  WiFi.softAP("002", "1029384756");
+#ifdef ENABLE_AP_MODE
+  WiFi.softAP("esp", "1029384756");
 #else
-  // LOGI("reset wifi...");
-  // wifiManager.resetSettings();
-
-  LOGI("start wifi manager...");
-  wifiManager.setDebugOutput(true);
-  wifiManager.setTimeout(10);
-  wifiManager.autoConnect("001");
-
-  LOGI("check connect...");
-  if (!WiFi.isConnected()) {
-    LOGI("not connect, start ESP...");
-    WiFi.softAP("002", "1029384756");
+  WiFi.begin("ikun", "1029384756");
+  int count = 0;
+  while (!WiFi.isConnected()) {
+    if (count++ > 10) {
+      esp_restart();
+    }
+    delay(1000);
+    LOGR(".");
   }
+  LOGLN();
 #endif
 }
 
