@@ -70,11 +70,20 @@ void setup() {
   sntp_obtain_time();
 }
 
-void push_data(float temperature, float humidity) {
+struct SensorData {
+  float temperature;
+  float humidity;
+  float temperature_2;
+  float humidity_2;
+} s_data;
+
+void push_data() {
   JsonDocument doc;
   doc["timestamps"] = utils::getTimestamps();
-  doc["temperature"] = temperature;
-  doc["humidity"] = humidity;
+  doc["temperature"] = s_data.temperature;
+  doc["humidity"] = s_data.humidity;
+  doc["temperature_2"] = s_data.temperature_2;
+  doc["humidity_2"] = s_data.humidity_2;
   String json_str;
   serializeJson(doc, json_str);
 
@@ -102,16 +111,21 @@ void process_dht() {
   }
 
   LOGI("Temperature: %f", t);
-  LOGI("humidity: %f", h);
+  LOGI("Humidity: %f", h);
+
+  s_data.temperature_2 = t;
+  s_data.humidity_2 = h;
 }
 
 void process_aht() {
   sensors_event_t humidity, temp;
   aht.getEvent(&humidity, &temp);  // populate temp and humidity objects with fresh data
-  LOGI("Temperature: %f", temp.temperature);
-  LOGI("humidity: %f", humidity.relative_humidity);
 
-  push_data(temp.temperature, humidity.relative_humidity);
+  LOGI("Temperature: %f", temp.temperature);
+  LOGI("Humidity: %f", humidity.relative_humidity);
+
+  s_data.temperature = temp.temperature;
+  s_data.humidity = humidity.relative_humidity;
 }
 
 void loop() {
@@ -121,4 +135,6 @@ void loop() {
   process_dht();
   LOGI("process_aht");
   process_aht();
+
+  push_data();
 }
