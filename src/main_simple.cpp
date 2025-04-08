@@ -1,4 +1,6 @@
-#include <HardwareSerial.h>
+#ifdef MAIN_SIMPLE
+
+#include <Arduino.h>
 
 void setup() {
   Serial.begin(115200);
@@ -12,3 +14,5 @@ void loop() {
   digitalWrite(BLINK_LED, LOW);
   delay(100);
 }
+
+#endif
