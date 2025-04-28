@@ -5,12 +5,11 @@
 
 #include "log.h"
 
-// SX1262 has the following connections:
-// NSS pin:   10
-// DIO1 pin:  2
-// NRST pin:  3
-// BUSY pin:  9
-LLCC68 radio = new Module(PA4, PB4, -1, PB14);
+// NSS pin:   PA4
+// DIO1 pin:  PB4
+// NRST pin:  PB15
+// BUSY pin:  PB14
+static LLCC68 radio = new Module(PA4, PB4, PB15, PB14);
 
 #include "mesh_core.hpp"
 
@@ -65,12 +64,12 @@ int mesh_core_test() {
 }
 
 void lora_init() {
-  LOGD("[SX1262] Initializing ...");
+  LOGD("init...");
   int state = radio.begin();
   if (state == RADIOLIB_ERR_NONE) {
-    LOGD("success");
+    LOGD("init success");
   } else {
-    LOGD("failed, code: %d", state);
+    LOGD("init failed, code: %d", state);
     while (true) {
       delay(10);
     }
@@ -81,7 +80,7 @@ void lora_init() {
 int count = 0;
 
 void lora_test() {
-  LOGD("[SX1262] Transmitting packet ...");
+  LOGD("send...");
 
   // you can transmit C-string or Arduino string up to
   // 256 characters long
@@ -96,17 +95,17 @@ void lora_test() {
 
   if (state == RADIOLIB_ERR_NONE) {
     // the packet was successfully transmitted
-    LOGD("success!");
-    LOGD("[SX1262] Datarate: %d bps", radio.getDataRate());
+    LOGD("send: success!");
+    LOGD("data rate: %f bps", radio.getDataRate());
   } else if (state == RADIOLIB_ERR_PACKET_TOO_LONG) {
     // the supplied packet was longer than 256 bytes
-    LOGD("too long!");
+    LOGD("send: too long!");
   } else if (state == RADIOLIB_ERR_TX_TIMEOUT) {
     // timeout occured while transmitting packet
-    LOGD("timeout!");
+    LOGD("send: timeout!");
   } else {
     // some other error occurred
-    LOGD("failed, code: %d", state);
+    LOGD("send: failed, code: %d", state);
   }
 
   // wait for a second before transmitting again
