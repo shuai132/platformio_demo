@@ -1,0 +1,3 @@
+[submodule "lib/mesh_core"]
+	path = lib/mesh_core
+	url = git@github.com:shuai132/mesh_core.git
