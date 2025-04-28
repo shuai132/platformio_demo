@@ -5,6 +5,8 @@
 #include <Arduino.h>
 #include <STM32FreeRTOS.h>
 
+#include "log.h"
+
 const uint8_t LED_PIN = BLINK_LED;
 
 volatile uint32_t count = 0;
@@ -18,21 +20,14 @@ static void vLEDFlashTask(void *pvParameters) {
   UNUSED(pvParameters);
   pinMode(LED_PIN, OUTPUT);
 
-  // Flash led every 200 ms.
+  // Flash led every 1000 ms.
   for (;;) {
-    // Turn LED on.
-    digitalWrite(LED_PIN, HIGH);
-
-    // Sleep for 50 milliseconds.
-    vTaskDelay((50L * configTICK_RATE_HZ) / 1000L);
-
-    // Turn LED off.
-    digitalWrite(LED_PIN, LOW);
-
-    // Sleep for 150 milliseconds.
-    vTaskDelay((150L * configTICK_RATE_HZ) / 1000L);
+    LOG("LED thread");
+    digitalToggle(LED_PIN);
+    vTaskDelay((1000L * configTICK_RATE_HZ) / 1000L);
   }
 }
+
 //------------------------------------------------------------------------------
 static void vPrintTask(void *pvParameters) {
   UNUSED(pvParameters);
@@ -40,17 +35,10 @@ static void vPrintTask(void *pvParameters) {
     // Sleep for one second.
     vTaskDelay(configTICK_RATE_HZ);
 
-    // Print count for previous second.
-    Serial.print(F("Count: "));
-    Serial.print(count);
-
     // Print unused stack for threads.
-    Serial.print(F(", Unused Stack: "));
-    Serial.print(uxTaskGetStackHighWaterMark(blink));
-    Serial.print(' ');
-    Serial.print(uxTaskGetStackHighWaterMark(0));
-    Serial.print(' ');
-    Serial.println(uxTaskGetStackHighWaterMark(xTaskGetIdleTaskHandle()));
+    LOG("Unused Stack(LED): %lu, count: %u", uxTaskGetStackHighWaterMark(blink), count);
+    LOG("Unused Stack(IDLE): %lu", uxTaskGetStackHighWaterMark(xTaskGetIdleTaskHandle()));
+    LOG("Unused Stack(PRINT): %lu", uxTaskGetStackHighWaterMark(nullptr));
 
     // Zero count.
     count = 0;
@@ -59,19 +47,19 @@ static void vPrintTask(void *pvParameters) {
 
 //------------------------------------------------------------------------------
 void setup() {
-  Serial.begin(115200);
+  Serial1.begin(115200);
 
   // create blink task
-  xTaskCreate(vLEDFlashTask, "Task1", configMINIMAL_STACK_SIZE + 50, NULL, tskIDLE_PRIORITY + 2, &blink);
+  xTaskCreate(vLEDFlashTask, "Task1", configMINIMAL_STACK_SIZE + 256, NULL, tskIDLE_PRIORITY + 2, &blink);
 
   // create print task
-  xTaskCreate(vPrintTask, "Task2", configMINIMAL_STACK_SIZE + 100, NULL, tskIDLE_PRIORITY + 1, NULL);
+  xTaskCreate(vPrintTask, "Task2", configMINIMAL_STACK_SIZE + 256, NULL, tskIDLE_PRIORITY + 1, NULL);
 
   // start FreeRTOS
   vTaskStartScheduler();
 
   // should never return
-  Serial.println(F("Die"));
+  LOG("Die");
   while (1)
     ;
 }
