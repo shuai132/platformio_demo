@@ -47,7 +47,7 @@ static void vPrintTask(void *pvParameters) {
 
 //------------------------------------------------------------------------------
 void setup() {
-  Serial1.begin(115200);
+  DEBUG_SERIAL.begin(115200);
 
   // create blink task
   xTaskCreate(vLEDFlashTask, "Task1", configMINIMAL_STACK_SIZE + 256, NULL, tskIDLE_PRIORITY + 2, &blink);

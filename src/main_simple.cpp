@@ -5,12 +5,13 @@
 #include "log.h"
 
 void setup() {
-  Serial1.begin(115200);
+  DEBUG_SERIAL.begin(115200);
   pinMode(BLINK_LED, OUTPUT);
 }
 
 void loop() {
-  LOG("loop...");
+  static uint32_t count;
+  LOG("loop: %u", count++);
   digitalWrite(BLINK_LED, HIGH);
   delay(100);
   digitalWrite(BLINK_LED, LOW);
