@@ -9,6 +9,12 @@
 #include "log.h"
 #include "mesh_core.hpp"
 
+#define DEVICE_ID 0x01
+
+// PA config
+#define PA_PIN_VALUE LOW
+#define PA_POWER_DBM 0
+
 #define PIN_CPS PB13
 #define PIN_RF PA1
 
@@ -61,24 +67,18 @@ static void loop_check_recv() {
     // reset flag
     received_flag = false;
 
-    // you can read received data as an Arduino String
-    String str;
-    int state = radio.readData(str);
-
-    // you can also read received data as byte array
-    /*
-      byte byteArr[8];
-      int numBytes = radio.getPacketLength();
-      int state = radio.readData(byteArr, numBytes);
-    */
-
+    uint8_t buffer[256]{};
+    auto bytes = radio.getPacketLength();
+    int state = radio.readData(buffer, bytes);
     if (state == RADIOLIB_ERR_NONE) {
       // packet was successfully received
-      LOGD("RECV: %s", str.c_str());
-      LOGD("RSSI: %f dBm", radio.getRSSI());
-      LOGD("SNR: %f dB", radio.getSNR());
-      LOGD("Frequency error: %f Hz", radio.getFrequencyError());
-      if (recv_handle) recv_handle(std::string(str.begin(), str.end()));
+      if (bytes == 0) return;
+      LOGD("SIZE: %u", bytes);
+      LOGD("DATA: %s", buffer);
+      LOGD("RSSI: %d dBm", (int)radio.getRSSI());
+      LOGD("SNR: %d dB", (int)radio.getSNR());
+      LOGD("FE: %d Hz", (int)(radio.getFrequencyError()));
+      if (recv_handle) recv_handle(std::string((char*)buffer, bytes));
     } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
       LOGD("CRC error!");
     } else {
@@ -90,7 +90,7 @@ static void loop_check_recv() {
 static void lora_init() {
   LOGD("lora init...");
   int state = radio.begin();
-  radio.setOutputPower(0);
+  radio.setOutputPower(PA_POWER_DBM);
   if (state == RADIOLIB_ERR_NONE) {
     LOGD("init success");
   } else {
@@ -103,7 +103,7 @@ static void lora_init() {
   // enable CPS, RF
   pinMode(PIN_CPS, OUTPUT);
   pinMode(PIN_RF, OUTPUT);
-  digitalWrite(PIN_CPS, HIGH);
+  digitalWrite(PIN_CPS, PA_PIN_VALUE);
   digitalWrite(PIN_RF, HIGH);
 
   // set the function that will be called when new packet is received
@@ -114,10 +114,10 @@ static void lora_init() {
 
 static void lora_start_recv() {
   // start listening for LoRa packets
-  LOGD("starting to listen...");
+  LOGV("starting to listen...");
   int state = radio.startReceive();
   if (state == RADIOLIB_ERR_NONE) {
-    LOGD("start recv: success!");
+    LOGV("start recv: success!");
   } else {
     LOGE("start recv: failed, code: %d", state);
     while (true) {
@@ -126,26 +126,29 @@ static void lora_start_recv() {
   }
 }
 
-// counter to keep track of transmitted packets
 static void lora_send() {
   LOGD("send...");
 
-  // you can transmit C-string or Arduino string up to
-  // 256 characters long
-  String str = "Hello World! #" + String(send_count++);
-  digitalWrite(PIN_LED_1, HIGH);
-  int state = radio.transmit(str);
-  digitalWrite(PIN_LED_1, LOW);
+  uint8_t buffer[128]{};
+  size_t size = snprintf((char*)buffer, sizeof(buffer), "Hello from: 0x%02X, %d", DEVICE_ID, send_count++);
 
-  // you can also transmit byte array up to 256 bytes long
-  /*
-    byte byteArr[] = {0x01, 0x23, 0x45, 0x56, 0x78, 0xAB, 0xCD, 0xEF};
-    int state = radio.transmit(byteArr, 8);
-  */
+  /// check channel free
+  auto scan = radio.scanChannel();
+  if (scan == RADIOLIB_CHANNEL_FREE) {
+    LOGD("scan channel: free");
+  } else if (scan == RADIOLIB_LORA_DETECTED) {
+    LOGW("scan channel: busy, cancel send!");
+    return;
+  }
+
+  /// send
+  digitalWrite(PIN_LED_1, HIGH);
+  int state = radio.transmit(buffer, size);
+  digitalWrite(PIN_LED_1, LOW);
+  // send result
   if (state == RADIOLIB_ERR_NONE) {
     // the packet was successfully transmitted
-    LOGD("send: success!");
-    LOGD("data rate: %f bps", radio.getDataRate());
+    LOGD("send: ok! rate: %d bps", (int)radio.getDataRate());
   } else if (state == RADIOLIB_ERR_PACKET_TOO_LONG) {
     // the supplied packet was longer than 256 bytes
     LOGD("send: too long!");
@@ -160,9 +163,11 @@ static void lora_send() {
 
 void setup() {
   // init io
-  DEBUG_SERIAL.begin(115200);
+  DEBUG_SERIAL.begin(DEBUG_BAUDRATE);
   pinMode(PIN_LED_1, OUTPUT);
   pinMode(PIN_LED_2, OUTPUT);
+  LOGD("DEVICE_ID: 0x%02X", DEVICE_ID);
+  delay(random(200, 500));
 
   // init lora
   lora_init();
@@ -177,6 +182,7 @@ void setup() {
 
 void loop() {
   timer.run();
+  loop_check_recv();
 }
 
 #endif
