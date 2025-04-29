@@ -10,6 +10,7 @@
 #include "mesh_core.hpp"
 
 #define DEVICE_ID 0x01
+// #define ENABLE_MESH
 
 // PA config
 #define PA_PIN_VALUE LOW
@@ -32,9 +33,12 @@ static std::function<void(std::string)> recv_handle;
 static volatile bool received_flag = false;
 static int send_count = 0;
 
+static void lora_send(void* data, size_t size, uint32_t timeout_ms = 1000);
+static void lora_start_recv();
+
 struct Impl {
   static void broadcast(std::string data) {
-    radio.transmit(data.data(), data.size());
+    lora_send(data.data(), data.size());
   }
 
   static void set_recv_handle(std::function<void(std::string)> handle) {
@@ -50,15 +54,14 @@ struct Impl {
   }
 };
 
-static int mesh_core_test() {
-  Impl impl;
-  mesh_core::mesh<Impl> mesh(&impl);
-  mesh.set_addr(0x00);
+static Impl impl;
+static mesh_core::mesh<Impl> mesh(&impl);
+
+static void mesh_core_init() {
+  mesh.set_addr(DEVICE_ID);
   mesh.on_recv([](mesh_core::addr_t addr, const mesh_core::data_t& data) {
-    MESH_CORE_LOG("addr: 0x%02X, data: %s", addr, data.c_str());
+    LOGD("addr: 0x%02X, data: %s", addr, data.c_str());
   });
-  mesh.send(0x01, "hello");
-  return 0;
 }
 
 static void loop_check_recv() {
@@ -66,6 +69,9 @@ static void loop_check_recv() {
   if (received_flag) {
     // reset flag
     received_flag = false;
+    // led
+    digitalWrite(PIN_LED_2, HIGH);
+    digitalWrite(PIN_LED_2, LOW);
 
     uint8_t buffer[256]{};
     auto bytes = radio.getPacketLength();
@@ -78,7 +84,9 @@ static void loop_check_recv() {
       LOGD("RSSI: %d dBm", (int)radio.getRSSI());
       LOGD("SNR: %d dB", (int)radio.getSNR());
       LOGD("FE: %d Hz", (int)(radio.getFrequencyError()));
+#ifdef ENABLE_MESH
       if (recv_handle) recv_handle(std::string((char*)buffer, bytes));
+#endif
     } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
       LOGD("CRC error!");
     } else {
@@ -95,9 +103,8 @@ static void lora_init() {
     LOGD("init success");
   } else {
     LOGE("init failed, code: %d", state);
-    while (true) {
-      delay(10);
-    }
+    delay(1000);
+    HAL_NVIC_SystemReset();
   }
 
   // enable CPS, RF
@@ -120,31 +127,47 @@ static void lora_start_recv() {
     LOGV("start recv: success!");
   } else {
     LOGE("start recv: failed, code: %d", state);
-    while (true) {
-      delay(10);
+    delay(1000);
+    HAL_NVIC_SystemReset();
+  }
+}
+
+static bool lora_wait_free(uint32_t timeout_ms = 1000) {
+  auto start = getCurrentMillis();
+  for (;;) {
+    auto scan = radio.scanChannel();
+    if (scan == RADIOLIB_CHANNEL_FREE) {
+      LOGD("scan channel: free");
+      return true;
+    } else {
+      auto now = getCurrentMillis();
+      if (now - start > timeout_ms) {
+        LOGD("scan channel: timeout");
+        return false;
+      } else {
+        delay(1);
+        continue;
+      }
     }
   }
 }
 
-static void lora_send() {
+static void lora_send(void* data, size_t size, uint32_t timeout_ms) {
   LOGD("send...");
 
-  uint8_t buffer[128]{};
-  size_t size = snprintf((char*)buffer, sizeof(buffer), "Hello from: 0x%02X, %d", DEVICE_ID, send_count++);
-
-  /// check channel free
-  auto scan = radio.scanChannel();
-  if (scan == RADIOLIB_CHANNEL_FREE) {
-    LOGD("scan channel: free");
-  } else if (scan == RADIOLIB_LORA_DETECTED) {
-    LOGW("scan channel: busy, cancel send!");
+  /// wait channel free
+  bool is_free = lora_wait_free();
+  if (!is_free) {
+    LOGW("channel busy, cancel send!");
+    lora_start_recv();
     return;
-  }
+  };
 
   /// send
   digitalWrite(PIN_LED_1, HIGH);
-  int state = radio.transmit(buffer, size);
+  int state = radio.transmit((uint8_t*)data, size);
   digitalWrite(PIN_LED_1, LOW);
+
   // send result
   if (state == RADIOLIB_ERR_NONE) {
     // the packet was successfully transmitted
@@ -159,24 +182,42 @@ static void lora_send() {
     // some other error occurred
     LOGE("send: failed, code: %d", state);
   }
+
+  lora_start_recv();
 }
 
 void setup() {
   // init io
   DEBUG_SERIAL.begin(DEBUG_BAUDRATE);
+
+  // init led
   pinMode(PIN_LED_1, OUTPUT);
   pinMode(PIN_LED_2, OUTPUT);
+  digitalWrite(PIN_LED_1, LOW);
+  digitalWrite(PIN_LED_2, LOW);
+
+  // init device
   LOGD("DEVICE_ID: 0x%02X", DEVICE_ID);
-  delay(random(200, 500));
+  delay(DEVICE_ID * 100);
 
   // init lora
   lora_init();
   lora_start_recv();
 
+#ifdef ENABLE_MESH
+  // init mesh
+  mesh_core_init();
+#endif
+
   // send test
   timer.setInterval(1000, [] {
-    lora_send();
-    lora_start_recv();
+    uint8_t data[128]{};
+    size_t size = snprintf((char*)data, sizeof(data), "Hello from: 0x%02X, %d", DEVICE_ID, send_count++);
+#ifdef ENABLE_MESH
+    mesh.send(0x00, std::string((char*)buffer, size));
+#else
+    lora_send(data, size);
+#endif
   });
 }
 
