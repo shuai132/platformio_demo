@@ -9,11 +9,17 @@
 #include "log.h"
 #include "mesh_core.hpp"
 
-// NSS pin:   PA4
-// DIO1 pin:  PB4
-// NRST pin:  PB15
-// BUSY pin:  PB14
-static LLCC68 radio = new Module(PA4, PB4, PB15, PB14);
+#define PIN_CPS PB13
+#define PIN_RF PA1
+
+#define PIN_LED_1 PB6
+#define PIN_LED_2 PB5
+
+#define PIN_NSS PA4
+#define PIN_DIO1 PB0
+#define PIN_NRST PB15
+#define PIN_BUSY PA2
+static LLCC68 radio = new Module(PIN_NSS, PIN_DIO1, PIN_NRST, PIN_BUSY);
 
 static SimpleTimer timer;
 static std::function<void(std::string)> recv_handle;
@@ -84,6 +90,7 @@ static void loop_check_recv() {
 static void lora_init() {
   LOGD("lora init...");
   int state = radio.begin();
+  radio.setOutputPower(0);
   if (state == RADIOLIB_ERR_NONE) {
     LOGD("init success");
   } else {
@@ -92,6 +99,12 @@ static void lora_init() {
       delay(10);
     }
   }
+
+  // enable CPS, RF
+  pinMode(PIN_CPS, OUTPUT);
+  pinMode(PIN_RF, OUTPUT);
+  digitalWrite(PIN_CPS, HIGH);
+  digitalWrite(PIN_RF, HIGH);
 
   // set the function that will be called when new packet is received
   radio.setPacketReceivedAction([] {
@@ -120,7 +133,9 @@ static void lora_send() {
   // you can transmit C-string or Arduino string up to
   // 256 characters long
   String str = "Hello World! #" + String(send_count++);
+  digitalWrite(PIN_LED_1, HIGH);
   int state = radio.transmit(str);
+  digitalWrite(PIN_LED_1, LOW);
 
   // you can also transmit byte array up to 256 bytes long
   /*
@@ -144,10 +159,16 @@ static void lora_send() {
 }
 
 void setup() {
-  Serial1.begin(115200);
-  pinMode(BLINK_LED, OUTPUT);
+  // init io
+  DEBUG_SERIAL.begin(115200);
+  pinMode(PIN_LED_1, OUTPUT);
+  pinMode(PIN_LED_2, OUTPUT);
+
+  // init lora
   lora_init();
   lora_start_recv();
+
+  // send test
   timer.setInterval(1000, [] {
     lora_send();
     lora_start_recv();
