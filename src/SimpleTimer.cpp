@@ -25,6 +25,8 @@
 
 #include "SimpleTimer.h"
 
+#include <utility>
+
 #include "stm32f1xx_hal.h"
 
 // Select time function:
@@ -133,12 +135,12 @@ int SimpleTimer::setTimer(unsigned long d, timer_callback f, int n) {
     return -1;
   }
 
-  if (f == NULL) {
+  if (f == nullptr) {
     return -1;
   }
 
   delays[freeTimer] = d;
-  callbacks[freeTimer] = f;
+  callbacks[freeTimer] = std::move(f);
   maxNumRuns[freeTimer] = n;
   enabled[freeTimer] = true;
   prev_millis[freeTimer] = elapsed();
@@ -149,11 +151,11 @@ int SimpleTimer::setTimer(unsigned long d, timer_callback f, int n) {
 }
 
 int SimpleTimer::setInterval(unsigned long d, timer_callback f) {
-  return setTimer(d, f, RUN_FOREVER);
+  return setTimer(d, std::move(f), RUN_FOREVER);
 }
 
 int SimpleTimer::setTimeout(unsigned long d, timer_callback f) {
-  return setTimer(d, f, RUN_ONCE);
+  return setTimer(d, std::move(f), RUN_ONCE);
 }
 
 void SimpleTimer::deleteTimer(int timerId) {
@@ -168,7 +170,7 @@ void SimpleTimer::deleteTimer(int timerId) {
 
   // don't decrease the number of timers if the
   // specified slot is already empty
-  if (callbacks[timerId] != NULL) {
+  if (callbacks[timerId] != nullptr) {
     callbacks[timerId] = 0;
     enabled[timerId] = false;
     toBeCalled[timerId] = DEFCALL_DONTRUN;
