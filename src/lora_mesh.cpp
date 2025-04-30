@@ -112,6 +112,15 @@ bool lora_try_send(const uint8_t* data, size_t size) {
     return false;
   }
 
+  // debug
+#ifdef L_O_G_SHOW_DEBUG
+  L_O_G_PRINTF("=> SEND:");
+  for (int i = 0; i < size; ++i) {
+    L_O_G_PRINTF(" 0x%02X", data[i]);
+  }
+  L_O_G_PRINTF("\r\n");
+#endif
+
   /// send
   digitalWrite(PIN_LED_1, HIGH);
   int state = radio.transmit(data, size);
@@ -154,7 +163,13 @@ void lora_loop() {
       // packet was successfully received
       if (bytes == 0) return;
       LOGD("SIZE: %u", bytes);
-      LOGD("DATA: %s", buffer);
+#ifdef L_O_G_SHOW_DEBUG
+      L_O_G_PRINTF("<= DATA: ");
+      for (int i = 0; i < bytes; ++i) {
+        L_O_G_PRINTF(" 0x%02X", buffer[i]);
+      }
+      L_O_G_PRINTF("\r\n");
+#endif
       LOGD("RSSI: %d dBm", (int)radio.getRSSI());
       LOGD("SNR: %d dB", (int)radio.getSNR());
       LOGD("FE: %d Hz", (int)(radio.getFrequencyError()));

@@ -19,6 +19,6 @@ extern mesh_core::mesh<LoraMeshImpl> lora_mesh;
 void lora_init();
 void lora_loop();
 
-void lora_send(std::string data, int retry_count = 10, int retry_delay_ms = 100);
+void lora_send(std::string data, int retry_count = 3, int retry_delay_ms = 500);
 bool lora_try_send(const uint8_t* data, size_t size);
 void lora_on_recv(std::function<void(std::string)> handle);
