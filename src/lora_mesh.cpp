@@ -7,6 +7,7 @@
 
 #include "SimpleTimer.h"
 #include "log.h"
+#include "utils.h"
 
 #define PIN_CPS PB13
 #define PIN_RF PA1
@@ -114,11 +115,7 @@ bool lora_try_send(const uint8_t* data, size_t size) {
 
   // debug
 #ifdef L_O_G_SHOW_DEBUG
-  L_O_G_PRINTF("=> SEND:");
-  for (int i = 0; i < size; ++i) {
-    L_O_G_PRINTF(" 0x%02X", data[i]);
-  }
-  L_O_G_PRINTF("\r\n");
+  debug_print_hex("=> SEND", data, size);
 #endif
 
   /// send
@@ -164,11 +161,7 @@ void lora_loop() {
       if (bytes == 0) return;
       LOGD("SIZE: %u", bytes);
 #ifdef L_O_G_SHOW_DEBUG
-      L_O_G_PRINTF("<= DATA: ");
-      for (int i = 0; i < bytes; ++i) {
-        L_O_G_PRINTF(" 0x%02X", buffer[i]);
-      }
-      L_O_G_PRINTF("\r\n");
+      debug_print_hex("<= DATA", buffer, bytes);
 #endif
       LOGD("RSSI: %d dBm", (int)radio.getRSSI());
       LOGD("SNR: %d dB", (int)radio.getSNR());
