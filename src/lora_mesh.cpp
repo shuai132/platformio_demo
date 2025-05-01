@@ -29,6 +29,9 @@ static void lora_start_recv();
 
 ///  ********** lora mesh **********  ///
 void LoraMeshImpl::broadcast(std::string data) {
+#ifdef L_O_G_SHOW_DEBUG
+  debug_print_hex("broadcast", data.data(), data.size());
+#endif
   lora_send(std::move(data));
 }
 void LoraMeshImpl::set_recv_handle(std::function<void(std::string)> handle) {
@@ -97,6 +100,7 @@ void lora_send(std::string data, int retry_count, int retry_delay_ms) {
   if (!ok) {
     if (--retry_count <= 0) return;
     timer.setTimeout(retry_delay_ms, [=, data = std::move(data)]() mutable {
+      LOGD("send: retry_count: %d", retry_count);
       lora_send(std::move(data), retry_count, retry_delay_ms);
     });
   }
@@ -106,9 +110,9 @@ bool lora_try_send(const uint8_t* data, size_t size) {
   /// check channel free
   auto scan = radio.scanChannel();
   if (scan == RADIOLIB_CHANNEL_FREE) {
-    LOGD("channel: free");
+    LOGD("send: channel free");
   } else {
-    LOGD("channel: not free: %d", scan);
+    LOGD("send: channel not free: %d", scan);
     lora_start_recv();
     return false;
   }
@@ -149,13 +153,14 @@ void lora_loop() {
   if (received_flag) {
     // reset flag
     received_flag = false;
-    // led
-    digitalWrite(PIN_LED_2, HIGH);
-    digitalWrite(PIN_LED_2, LOW);
 
+    // read data
+    digitalWrite(PIN_LED_2, HIGH);
     uint8_t buffer[256]{};
     auto bytes = radio.getPacketLength();
     int state = radio.readData(buffer, bytes);
+    digitalWrite(PIN_LED_2, LOW);
+
     if (state == RADIOLIB_ERR_NONE) {
       // packet was successfully received
       if (bytes == 0) return;
