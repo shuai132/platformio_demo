@@ -29,9 +29,9 @@ static void lora_start_recv();
 
 ///  ********** lora mesh **********  ///
 void LoraMeshImpl::broadcast(std::string data) {
-#ifdef L_O_G_SHOW_DEBUG
-  debug_print_hex("broadcast", data.data(), data.size());
-#endif
+  LOGD("broadcast:");
+  LOGD_HEX_H(data.data(), data.size());
+  LOGD_HEX_D(data.data(), data.size());
   lora_send(std::move(data));
 }
 void LoraMeshImpl::set_recv_handle(mesh_core::recv_handle_t handle) {
@@ -118,9 +118,9 @@ bool lora_try_send(const uint8_t* data, size_t size) {
   }
 
   // debug
-#ifdef L_O_G_SHOW_DEBUG
-  debug_print_hex("=> SEND", data, size);
-#endif
+  LOGD("=> SEND");
+  LOGD_HEX_H(data, size);
+  LOGD_HEX_D(data, size);
 
   /// send
   digitalWrite(PIN_LED_1, HIGH);
@@ -165,12 +165,12 @@ void lora_loop() {
       // packet was successfully received
       if (bytes == 0) return;
       LOGD("SIZE: %u", bytes);
-#ifdef L_O_G_SHOW_DEBUG
-      debug_print_hex("<= DATA", buffer, bytes);
-#endif
       LOGD("RSSI: %d dBm", (int)radio.getRSSI());
       LOGD("SNR: %d dB", (int)radio.getSNR());
       LOGD("FE: %d Hz", (int)(radio.getFrequencyError()));
+      LOGD("<= DATA");
+      LOGD_HEX_H(buffer, bytes);
+      LOGD_HEX_D(buffer, bytes);
       if (recv_handle) recv_handle(std::string((char*)buffer, bytes), (mesh_core::lqs_t)radio.getSNR());
     } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
       LOGD("CRC error!");
