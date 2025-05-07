@@ -2,6 +2,7 @@
 // L_O_G_NDEBUG                 disable debug log(auto by NDEBUG)
 // L_O_G_SHOW_DEBUG             force enable debug log
 // L_O_G_DISABLE_ALL            force disable all log
+// L_O_G_DISABLE_HEX            disable hex function
 // L_O_G_DISABLE_COLOR          disable color
 // L_O_G_LINE_END_CRLF
 // L_O_G_SHOW_FULL_PATH
@@ -39,14 +40,23 @@
 // version
 #define LOG_VER_MAJOR 1
 #define LOG_VER_MINOR 0
-#define LOG_VER_PATCH 0
+#define LOG_VER_PATCH 1
 #define LOG_TO_VERSION(major, minor, patch) (major * 10000 + minor * 100 + patch)
 #define LOG_VERSION LOG_TO_VERSION(LOG_VER_MAJOR, LOG_VER_MINOR, LOG_VER_PATCH)
 
-// suppress compile warnings
-inline void L_O_G_VOID(const char *fmt, ...) {
+#ifdef __cplusplus
+#define L_O_G_FUNCTION extern "C" inline
+#else
+#define L_O_G_FUNCTION static inline
+#endif
+
+// suppress compile warnings, ensure params will be used
+#ifndef L_O_G_VOID
+#define L_O_G_VOID L_O_G_VOID
+L_O_G_FUNCTION void L_O_G_VOID(const char *fmt, ...) {
   (void)(fmt);
 }
+#endif
 
 #if defined(LOG_DISABLE_ALL) || defined(L_O_G_DISABLE_ALL)
 
@@ -69,6 +79,10 @@ inline void L_O_G_VOID(const char *fmt, ...) {
 #include <cstring>
 #include <cstdlib>
 #if __cplusplus >= 201103L || defined(_MSC_VER)
+
+#if !defined(L_O_G_DISABLE_HEX) && !defined(L_O_G_ENABLE_HEX)
+#define L_O_G_ENABLE_HEX
+#endif
 
 #if !defined(L_O_G_DISABLE_THREAD_SAFE) && !defined(L_O_G_ENABLE_THREAD_SAFE)
 #define L_O_G_ENABLE_THREAD_SAFE
@@ -284,24 +298,138 @@ static inline std::string get_time() {
 #define LOGLN()                 LOGR(LOG_LINE_END)
 #define LOGRLN(fmt, ...)        do{ L_O_G_PRINTF(fmt LOG_END, ##__VA_ARGS__); } while(0)
 
-#if defined(LOG_IN_LIB) && !defined(LOG_SHOW_DEBUG) && !defined(L_O_G_NDEBUG)
-#define LOG_NDEBUG
+// for hex print
+#ifdef L_O_G_ENABLE_HEX
+#define LOG_HEX                 L_O_G_HEX
+#define LOG_HEX_H               L_O_G_HEX_H
+#define LOG_HEX_C               L_O_G_HEX_C
+#define LOG_HEX_D               L_O_G_HEX_D
+#include <stddef.h>
+#include <stdint.h>
+#include <ctype.h>
+#include <stdio.h>
+#ifdef ARDUINO
+#include <Arduino.h>
 #endif
 
-#if defined(L_O_G_NDEBUG) && !defined(LOG_NDEBUG)
+#ifndef L_O_G_HEX
+#define L_O_G_HEX L_O_G_HEX
+L_O_G_FUNCTION void L_O_G_HEX(const void *data, size_t size) {
+  const unsigned char *byte = (const unsigned char *)data;
+  uint32_t offset = 0;
+  while (offset < size) {
+    L_O_G_PRINTF("%08X  ", offset);
+    char hex_buffer[16 * 3 + 1] = {0};
+    char ascii_buffer[16 + 1] = {0};
+    for (int i = 0; i < 16; i++) {
+      if (offset + i < size) {
+        unsigned char b = byte[offset + i];
+        snprintf(hex_buffer + i * 3, 4, "%02X ", b);
+        ascii_buffer[i] = (char)(isprint(b) ? b : '.');
+      } else {
+        snprintf(hex_buffer + i * 3, 4, "   ");
+        ascii_buffer[i] = ' ';
+      }
+    }
+    L_O_G_PRINTF("%-48s %s" LOG_LINE_END, hex_buffer, ascii_buffer);
+    offset += 16;
+  }
+}
+#endif
+
+#ifndef L_O_G_HEX_H
+#define L_O_G_HEX_H L_O_G_HEX_H
+L_O_G_FUNCTION void L_O_G_HEX_H(const void *data, size_t size) {
+  const char *bytes = (const char *)data;
+  for (size_t i = 0; i < size; ++i) {
+    L_O_G_PRINTF("%02X ", bytes[i]);
+  }
+  L_O_G_PRINTF(LOG_LINE_END);
+}
+#endif
+
+#ifndef L_O_G_HEX_CHAR
+#define L_O_G_HEX_CHAR L_O_G_HEX_CHAR
+L_O_G_FUNCTION void L_O_G_HEX_CHAR(const char *fmt, const void *data, size_t size) {
+  const char *bytes = (const char *)data;
+  for (size_t i = 0; i < size; ++i) {
+    char c = bytes[i];
+    L_O_G_PRINTF(fmt, isprint(c) ? c : '.');
+  }
+  L_O_G_PRINTF(LOG_LINE_END);
+}
+#endif
+
+#define L_O_G_HEX_C(data, size) L_O_G_HEX_CHAR("%c", data, size);
+#define L_O_G_HEX_D(data, size) L_O_G_HEX_CHAR(" %c ", data, size);
+#endif
+
+// in-lib should define no-debug by default, if not enable by user
+#if defined(LOG_IN_LIB) && !defined(LOG_SHOW_DEBUG) && !defined(L_O_G_NDEBUG)
+#ifndef LOG_NDEBUG
 #define LOG_NDEBUG
+#endif
+#endif
+
+#if defined(L_O_G_NDEBUG)
+#ifndef LOG_NDEBUG
+#define LOG_NDEBUG
+#endif
 #endif
 
 #if (defined(NDEBUG) || defined(LOG_NDEBUG)) && !defined(L_O_G_SHOW_DEBUG)
-#define LOGD(fmt, ...)          L_O_G_VOID(fmt, ##__VA_ARGS__)
+#ifndef LOG_NDEBUG
+#define LOG_NDEBUG
+#endif
 #else
+#ifndef LOG_SHOW_DEBUG
+#define LOG_SHOW_DEBUG
+#endif
+#endif
+
+#if defined(LOG_SHOW_DEBUG)
 #define LOGD(fmt, ...)          do{ L_O_G_PRINTF(LOG_COLOR_DEFAULT LOG_TIME_LABEL LOG_THREAD_LABEL "[D]: %s:%d "       fmt LOG_END LOG_TIME_VALUE LOG_THREAD_VALUE, LOG_BASE_FILENAME, __LINE__, ##__VA_ARGS__); } while(0)
+#define LOGD_HEX                L_O_G_HEX
+#define LOGD_HEX_H              L_O_G_HEX_H
+#define LOGD_HEX_C              L_O_G_HEX_C
+#define LOGD_HEX_D              L_O_G_HEX_D
+#else
+#define LOGD(fmt, ...)          ((void)0)
+#define LOGD_HEX(...)           ((void)0)
+#define LOGD_HEX_H(...)         ((void)0)
+#define LOGD_HEX_C(...)         ((void)0)
+#define LOGD_HEX_D(...)         ((void)0)
 #endif
 
 #if defined(LOG_SHOW_VERBOSE)
 #define LOGV(fmt, ...)          do{ L_O_G_PRINTF(LOG_COLOR_DEFAULT LOG_TIME_LABEL LOG_THREAD_LABEL "[V]: %s:%d "       fmt LOG_END LOG_TIME_VALUE LOG_THREAD_VALUE, LOG_BASE_FILENAME, __LINE__, ##__VA_ARGS__); } while(0)
+#define LOGV_HEX                L_O_G_HEX
+#define LOGV_HEX_H              L_O_G_HEX_H
+#define LOGV_HEX_C              L_O_G_HEX_C
+#define LOGV_HEX_D              L_O_G_HEX_C
 #else
-#define LOGV(fmt, ...)          L_O_G_VOID(fmt, ##__VA_ARGS__)
+#define LOGV(fmt, ...)          ((void)0)
+#define LOGV_HEX(...)           ((void)0)
+#define LOGV_HEX_H(...)         ((void)0)
+#define LOGV_HEX_C(...)         ((void)0)
+#define LOGV_HEX_D(...)         ((void)0)
+#endif
+
+/// logic check
+#if defined(L_O_G_SHOW_DEBUG) && !defined(LOG_SHOW_DEBUG)
+#error
+#endif
+
+#if defined(L_O_G_NDEBUG) && !defined(LOG_NDEBUG)
+#error
+#endif
+
+#if defined(L_O_G_DISABLE_ALL) && !defined(LOG_DISABLE_ALL)
+#error
+#endif
+
+#if !defined(LOG_NDEBUG) && !defined(LOG_SHOW_DEBUG)
+#error
 #endif
 
 #endif

@@ -22,7 +22,7 @@
 static LLCC68 radio = new Module(PIN_NSS, PIN_DIO1, PIN_NRST, PIN_BUSY);
 
 static SimpleTimer timer;
-static std::function<void(std::string)> recv_handle;
+static mesh_core::recv_handle_t recv_handle;
 static volatile bool received_flag = false;
 
 static void lora_start_recv();
@@ -34,7 +34,7 @@ void LoraMeshImpl::broadcast(std::string data) {
 #endif
   lora_send(std::move(data));
 }
-void LoraMeshImpl::set_recv_handle(std::function<void(std::string)> handle) {
+void LoraMeshImpl::set_recv_handle(mesh_core::recv_handle_t handle) {
 #if ENABLE_MESH
   lora_on_recv(std::move(handle));
 #endif
@@ -91,7 +91,7 @@ void lora_init() {
   digitalWrite(PIN_RF, HIGH);
 }
 
-void lora_on_recv(std::function<void(std::string)> handle) {
+void lora_on_recv(mesh_core::recv_handle_t handle) {
   recv_handle = std::move(handle);
 }
 
@@ -171,7 +171,7 @@ void lora_loop() {
       LOGD("RSSI: %d dBm", (int)radio.getRSSI());
       LOGD("SNR: %d dB", (int)radio.getSNR());
       LOGD("FE: %d Hz", (int)(radio.getFrequencyError()));
-      if (recv_handle) recv_handle(std::string((char*)buffer, bytes));
+      if (recv_handle) recv_handle(std::string((char*)buffer, bytes), (mesh_core::lqs_t)radio.getSNR());
     } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
       LOGD("CRC error!");
     } else {

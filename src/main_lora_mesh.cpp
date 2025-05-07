@@ -35,7 +35,7 @@ void setup() {
   lora_init();
 
   // init mesh
-  lora_mesh.set_addr(DEVICE_ID);
+  lora_mesh.init(DEVICE_ID);
   lora_mesh.on_recv([](mesh_core::addr_t addr, const mesh_core::data_t& data) {
     LOGD("mesh: addr: 0x%02X, data: %s", addr, data.c_str());
   });

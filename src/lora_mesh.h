@@ -10,7 +10,7 @@
 
 struct LoraMeshImpl {
   static void broadcast(std::string data);
-  static void set_recv_handle(std::function<void(std::string)> handle);
+  static void set_recv_handle(mesh_core::recv_handle_t handle);
   static mesh_core::timestamp_t get_timestamp_ms();
   static void run_delay(std::function<void()> handle, int ms);
 };
@@ -21,4 +21,4 @@ void lora_loop();
 
 void lora_send(std::string data, int retry_count = 3, int retry_delay_ms = 500);
 bool lora_try_send(const uint8_t* data, size_t size);
-void lora_on_recv(std::function<void(std::string)> handle);
+void lora_on_recv(mesh_core::recv_handle_t handle);
