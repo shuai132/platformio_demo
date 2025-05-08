@@ -35,9 +35,7 @@ void LoraMeshImpl::broadcast(std::string data) {
   lora_send(std::move(data));
 }
 void LoraMeshImpl::set_recv_handle(mesh_core::recv_handle_t handle) {
-#if ENABLE_MESH
   lora_on_recv(std::move(handle));
-#endif
 }
 mesh_core::timestamp_t LoraMeshImpl::get_timestamp_ms() {
   return HAL_GetTick();
@@ -50,6 +48,7 @@ mesh_core::mesh<LoraMeshImpl> lora_mesh(&lora_mesh_impl);
 ///  ********** lora mesh **********  ///
 
 static void lora_start_recv() {
+  delay(300);
   // set the function that will be called when new packet is received
   radio.setPacketReceivedAction([] {
     received_flag = true;
@@ -67,6 +66,11 @@ static void lora_start_recv() {
   }
 }
 
+static void system_reset() {
+  delay(1000);
+  HAL_NVIC_SystemReset();
+}
+
 void lora_init() {
   LOGD("lora init...");
   pinMode(PIN_LED_1, OUTPUT);
@@ -74,14 +78,18 @@ void lora_init() {
   digitalWrite(PIN_LED_1, LOW);
   digitalWrite(PIN_LED_2, LOW);
 
+  if (auto state = radio.reset(true); state != RADIOLIB_ERR_NONE) {
+    LOGE("reset failed, code: %d", state);
+    system_reset();
+  }
+
   int state = radio.begin();
   radio.setOutputPower(PA_POWER_DBM);
   if (state == RADIOLIB_ERR_NONE) {
     LOGD("init success");
   } else {
     LOGE("init failed, code: %d", state);
-    delay(1000);
-    HAL_NVIC_SystemReset();
+    system_reset();
   }
 
   // enable CPS, RF

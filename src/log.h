@@ -22,10 +22,11 @@
 // 2. custom implements
 // L_O_G_PRINTF_CUSTOM          int L_O_G_PRINTF_CUSTOM(const char *fmt, ...)
 // L_O_G_GET_TID_CUSTOM         uint32_t L_O_G_GET_TID_CUSTOM()
+// L_O_G_GET_TIME_CUSTOM        std::string L_O_G_GET_TIME_CUSTOM()
 //
 // 3. use in library
 // 3.1. rename `LOG` to library name
-// 3.2. define `LOG_IN_LIB`
+// 3.2. define `LOG_HIDE_DEBUG`
 // 3.3. configuration options
 // LOG_SHOW_DEBUG
 // LOG_SHOW_VERBOSE
@@ -35,7 +36,7 @@
 
 // clang-format off
 
-//#define LOG_IN_LIB
+//#define LOG_HIDE_DEBUG
 
 // version
 #define LOG_VER_MAJOR 1
@@ -79,10 +80,6 @@ L_O_G_FUNCTION void L_O_G_VOID(const char *fmt, ...) {
 #include <cstring>
 #include <cstdlib>
 #if __cplusplus >= 201103L || defined(_MSC_VER)
-
-#if !defined(L_O_G_DISABLE_HEX) && !defined(L_O_G_ENABLE_HEX)
-#define L_O_G_ENABLE_HEX
-#endif
 
 #if !defined(L_O_G_DISABLE_THREAD_SAFE) && !defined(L_O_G_ENABLE_THREAD_SAFE)
 #define L_O_G_ENABLE_THREAD_SAFE
@@ -257,6 +254,10 @@ static inline uint32_t get_tid() {
 #endif
 
 #ifdef L_O_G_ENABLE_DATE_TIME
+#include <string>
+#ifdef L_O_G_GET_TIME_CUSTOM
+extern std::string L_O_G_GET_TIME_CUSTOM();
+#else
 #include <chrono>
 #include <sstream>
 #include <iomanip> // std::put_time
@@ -279,8 +280,14 @@ static inline std::string get_time() {
 }
 };
 #endif
+#endif
+#ifdef L_O_G_GET_TIME_CUSTOM
+#define LOG_TIME_LABEL "%s "
+#define LOG_TIME_VALUE ,L_O_G_GET_TIME_CUSTOM().c_str()
+#else
 #define LOG_TIME_LABEL "%s "
 #define LOG_TIME_VALUE ,L_O_G_NS_GET_TIME::get_time().c_str()
+#endif
 #else
 #define LOG_TIME_LABEL
 #define LOG_TIME_VALUE
@@ -298,7 +305,11 @@ static inline std::string get_time() {
 #define LOGLN()                 LOGR(LOG_LINE_END)
 #define LOGRLN(fmt, ...)        do{ L_O_G_PRINTF(fmt LOG_END, ##__VA_ARGS__); } while(0)
 
-// for hex print
+// for hex print, enable by default
+#if !defined(L_O_G_DISABLE_HEX) && !defined(L_O_G_ENABLE_HEX)
+#define L_O_G_ENABLE_HEX
+#endif
+
 #ifdef L_O_G_ENABLE_HEX
 #define LOG_HEX                 L_O_G_HEX
 #define LOG_HEX_H               L_O_G_HEX_H
@@ -340,7 +351,7 @@ L_O_G_FUNCTION void L_O_G_HEX(const void *data, size_t size) {
 #ifndef L_O_G_HEX_H
 #define L_O_G_HEX_H L_O_G_HEX_H
 L_O_G_FUNCTION void L_O_G_HEX_H(const void *data, size_t size) {
-  const char *bytes = (const char *)data;
+  const unsigned char *bytes = (const unsigned char *)data;
   for (size_t i = 0; i < size; ++i) {
     L_O_G_PRINTF("%02X ", bytes[i]);
   }
@@ -351,9 +362,9 @@ L_O_G_FUNCTION void L_O_G_HEX_H(const void *data, size_t size) {
 #ifndef L_O_G_HEX_CHAR
 #define L_O_G_HEX_CHAR L_O_G_HEX_CHAR
 L_O_G_FUNCTION void L_O_G_HEX_CHAR(const char *fmt, const void *data, size_t size) {
-  const char *bytes = (const char *)data;
+  const unsigned char *bytes = (const unsigned char *)data;
   for (size_t i = 0; i < size; ++i) {
-    char c = bytes[i];
+    unsigned char c = bytes[i];
     L_O_G_PRINTF(fmt, isprint(c) ? c : '.');
   }
   L_O_G_PRINTF(LOG_LINE_END);
@@ -365,7 +376,7 @@ L_O_G_FUNCTION void L_O_G_HEX_CHAR(const char *fmt, const void *data, size_t siz
 #endif
 
 // in-lib should define no-debug by default, if not enable by user
-#if defined(LOG_IN_LIB) && !defined(LOG_SHOW_DEBUG) && !defined(L_O_G_NDEBUG)
+#if defined(LOG_HIDE_DEBUG) && !defined(LOG_SHOW_DEBUG) && !defined(L_O_G_NDEBUG)
 #ifndef LOG_NDEBUG
 #define LOG_NDEBUG
 #endif

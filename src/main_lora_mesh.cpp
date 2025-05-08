@@ -15,11 +15,7 @@ static void start_send_test() {
   timer.setInterval(1000, [] {
     uint8_t data[128]{};
     size_t size = snprintf((char*)data, sizeof(data), "Hello from: 0x%02X, %d", DEVICE_ID, send_count++);
-#if ENABLE_MESH
-    lora_mesh.send(0x01, std::string((char*)data, size));
-#else
-    lora_send(std::string((char*)data, size));
-#endif
+    lora_mesh.send(SEND_TEST_TO_ADDR, std::string((char*)data, size));
   });
 }
 
