@@ -47,8 +47,12 @@ static LoraMeshImpl lora_mesh_impl;
 mesh_core::mesh<LoraMeshImpl> lora_mesh(&lora_mesh_impl);
 ///  ********** lora mesh **********  ///
 
+static void system_reset() {
+  delay(1000);
+  HAL_NVIC_SystemReset();
+}
+
 static void lora_start_recv() {
-  delay(300);
   // set the function that will be called when new packet is received
   radio.setPacketReceivedAction([] {
     received_flag = true;
@@ -61,14 +65,8 @@ static void lora_start_recv() {
     LOGV("start recv: success!");
   } else {
     LOGE("start recv: failed, code: %d", state);
-    delay(1000);
-    HAL_NVIC_SystemReset();
+    system_reset();
   }
-}
-
-static void system_reset() {
-  delay(1000);
-  HAL_NVIC_SystemReset();
 }
 
 void lora_init() {
@@ -106,7 +104,7 @@ void lora_on_recv(mesh_core::recv_handle_t handle) {
 void lora_send(std::string data, int retry_count, int retry_delay_ms) {
   bool ok = lora_try_send((uint8_t*)data.data(), data.size());
   if (!ok) {
-    if (--retry_count <= 0) return;
+    if (retry_count-- <= 0) return;
     timer.setTimeout(retry_delay_ms, [=, data = std::move(data)]() mutable {
       LOGD("send: retry_count: %d", retry_count);
       lora_send(std::move(data), retry_count, retry_delay_ms);
@@ -115,6 +113,9 @@ void lora_send(std::string data, int retry_count, int retry_delay_ms) {
 }
 
 bool lora_try_send(const uint8_t* data, size_t size) {
+  // must clear irq, avoid recv trigger!
+  radio.clearPacketReceivedAction();
+
   /// check channel free
   auto scan = radio.scanChannel();
   if (scan == RADIOLIB_CHANNEL_FREE) {
