@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+#include <string>
+
 #ifdef MAIN_FREERTOS
 
 #include "STM32FreeRTOS.h"

@@ -1,4 +1,4 @@
-#ifdef MAIN_LORA_MESH
+#ifdef CPP_SRC_LORA_MESH
 
 #include "lora_mesh.h"
 
@@ -7,7 +7,6 @@
 
 #include "SimpleTimer.h"
 #include "log.h"
-#include "utils.h"
 
 #define PIN_CPS PB13
 #define PIN_RF PA1
