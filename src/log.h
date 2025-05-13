@@ -1,9 +1,12 @@
+// Version: 1.0.1
+//
 // 1. global control
 // L_O_G_NDEBUG                 disable debug log(auto by NDEBUG)
 // L_O_G_SHOW_DEBUG             force enable debug log
 // L_O_G_DISABLE_ALL            force disable all log
 // L_O_G_DISABLE_HEX            disable hex function
 // L_O_G_DISABLE_COLOR          disable color
+// L_O_G_DISABLE_VERSION_CHECK  disable version check
 // L_O_G_LINE_END_CRLF
 // L_O_G_SHOW_FULL_PATH
 // L_O_G_FOR_MCU
@@ -26,7 +29,7 @@
 //
 // 3. use in library
 // 3.1. rename `LOG` to library name
-// 3.2. define `LOG_HIDE_DEBUG`
+// 3.2. will define `LOG_HIDE_DEBUG`
 // 3.3. configuration options
 // LOG_SHOW_DEBUG
 // LOG_SHOW_VERBOSE
@@ -36,8 +39,6 @@
 
 // clang-format off
 
-//#define LOG_HIDE_DEBUG
-
 // version
 #define LOG_VER_MAJOR 1
 #define LOG_VER_MINOR 0
@@ -45,6 +46,23 @@
 #define LOG_TO_VERSION(major, minor, patch) (major * 10000 + minor * 100 + patch)
 #define LOG_VERSION LOG_TO_VERSION(LOG_VER_MAJOR, LOG_VER_MINOR, LOG_VER_PATCH)
 
+// version check
+#ifndef L_O_G_VER_MAJOR
+#define L_O_G_VER_MAJOR LOG_VER_MAJOR
+#else
+#if !defined(L_O_G_DISABLE_VERSION_CHECK) && (L_O_G_VER_MAJOR != LOG_VER_MAJOR)
+#error "version incompatible"
+#endif
+#endif
+
+// auto define LOG_HIDE_DEBUG in library
+#define LOG_CHECK_RENAME_HELPER 1
+#define LOG_CHECK_RENAME L##OG_CHECK_RENAME_HELPER
+#if LOG_CHECK_RENAME != LOG_CHECK_RENAME_HELPER
+#define LOG_HIDE_DEBUG
+#endif
+
+// inline for global function
 #ifdef __cplusplus
 #define L_O_G_FUNCTION extern "C" inline
 #else
@@ -61,6 +79,10 @@ L_O_G_FUNCTION void L_O_G_VOID(const char *fmt, ...) {
 
 #if defined(LOG_DISABLE_ALL) || defined(L_O_G_DISABLE_ALL)
 
+#ifndef L_O_G_PRINTF
+#define L_O_G_PRINTF(fmt, ...)  L_O_G_VOID(fmt, ##__VA_ARGS__)
+#endif
+
 #define LOG(fmt, ...)           L_O_G_VOID(fmt, ##__VA_ARGS__)
 #define LOGT(tag, fmt, ...)     L_O_G_VOID(fmt, ##__VA_ARGS__)
 #define LOGI(fmt, ...)          L_O_G_VOID(fmt, ##__VA_ARGS__)
@@ -74,11 +96,18 @@ L_O_G_FUNCTION void L_O_G_VOID(const char *fmt, ...) {
 #define LOGLN()                 ((void)0)
 #define LOGRLN(fmt, ...)        L_O_G_VOID(fmt, ##__VA_ARGS__)
 
+#define LOGD_HEX(...)           ((void)0)
+#define LOGD_HEX_H(...)         ((void)0)
+#define LOGD_HEX_C(...)         ((void)0)
+#define LOGD_HEX_D(...)         ((void)0)
+
 #else
 
 #ifdef __cplusplus
 #include <cstring>
 #include <cstdlib>
+#include <cinttypes>
+
 #if __cplusplus >= 201103L || defined(_MSC_VER)
 
 #if !defined(L_O_G_DISABLE_THREAD_SAFE) && !defined(L_O_G_ENABLE_THREAD_SAFE)
@@ -97,6 +126,7 @@ L_O_G_FUNCTION void L_O_G_VOID(const char *fmt, ...) {
 #else
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #endif
 
 #ifdef  L_O_G_LINE_END_CRLF
@@ -242,10 +272,10 @@ static inline uint32_t get_tid() {
 #endif
 #endif
 #ifdef L_O_G_GET_TID_CUSTOM
-#define LOG_THREAD_LABEL "%u "
+#define LOG_THREAD_LABEL "%u" PRIu32 " "
 #define LOG_THREAD_VALUE ,L_O_G_GET_TID_CUSTOM()
 #else
-#define LOG_THREAD_LABEL "%u "
+#define LOG_THREAD_LABEL "%u" PRIu32 " "
 #define LOG_THREAD_VALUE ,L_O_G_NS_GET_TID::get_tid()
 #endif
 #else
@@ -329,13 +359,13 @@ L_O_G_FUNCTION void L_O_G_HEX(const void *data, size_t size) {
   const unsigned char *byte = (const unsigned char *)data;
   uint32_t offset = 0;
   while (offset < size) {
-    L_O_G_PRINTF("%08X  ", offset);
+    L_O_G_PRINTF("%08" PRIX32 "  ", offset);
     char hex_buffer[16 * 3 + 1] = {0};
     char ascii_buffer[16 + 1] = {0};
     for (int i = 0; i < 16; i++) {
       if (offset + i < size) {
         unsigned char b = byte[offset + i];
-        snprintf(hex_buffer + i * 3, 4, "%02X ", b);
+        snprintf(hex_buffer + i * 3, 4, "%02" PRIX8 " ", b);
         ascii_buffer[i] = (char)(isprint(b) ? b : '.');
       } else {
         snprintf(hex_buffer + i * 3, 4, "   ");
@@ -353,7 +383,7 @@ L_O_G_FUNCTION void L_O_G_HEX(const void *data, size_t size) {
 L_O_G_FUNCTION void L_O_G_HEX_H(const void *data, size_t size) {
   const unsigned char *bytes = (const unsigned char *)data;
   for (size_t i = 0; i < size; ++i) {
-    L_O_G_PRINTF("%02X ", bytes[i]);
+    L_O_G_PRINTF("%02" PRIX8 " ", bytes[i]);
   }
   L_O_G_PRINTF(LOG_LINE_END);
 }
