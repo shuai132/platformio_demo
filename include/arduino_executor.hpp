@@ -3,6 +3,9 @@
 #include <Arduino.h>
 
 #include <algorithm>
+#include <array>
+#include <atomic>
+#include <exception>
 #include <cstdint>
 #include <functional>
 #include <utility>
@@ -10,17 +13,29 @@
 
 #include <coro/executor.hpp>
 
-// Single-threaded executor: use only from setup()/loop(), never from an ISR.
+// Timers run in the main loop; dispatch/post from an ISR defer work to poll().
 class arduino_executor : public coro::executor {
  public:
   void dispatch(std::function<void()> fn) override {
-    if (!stopped_) {
+    if (stopped_) {
+      return;
+    }
+    if (__get_IPSR() != 0) {
+      enqueue_interrupt(std::move(fn));
+    } else {
       fn();
     }
   }
 
   void post(std::function<void()> fn) override {
-    post_delayed_ns(std::move(fn), 0);
+    if (stopped_) {
+      return;
+    }
+    if (__get_IPSR() != 0) {
+      enqueue_interrupt(std::move(fn));
+    } else {
+      post_delayed_ns(std::move(fn), 0);
+    }
   }
 
   void post_delayed_ns(std::function<void()> fn, uint64_t delay_ns) override {
@@ -41,6 +56,21 @@ class arduino_executor : public coro::executor {
     if (stopped_) {
       return;
     }
+    // Drain one IRQ completion, then give due timers a turn as well.
+    std::function<void()> ready;
+    const uint32_t interrupt_mask = __get_PRIMASK();
+    __disable_irq();
+    if (isr_read_ != isr_write_) {
+      ready = std::move(isr_tasks_[isr_read_]);
+      isr_read_ = (isr_read_ + 1) % isr_tasks_.size();
+    }
+    __set_PRIMASK(interrupt_mask);
+    if (ready) {
+      ready();
+    }
+    if (stopped_) {
+      return;
+    }
     if (!tasks_.empty() && tasks_.front().ready_ms <= now) {
       std::pop_heap(tasks_.begin(), tasks_.end(), later_task{});
       auto fn = std::move(tasks_.back().fn);
@@ -51,6 +81,24 @@ class arduino_executor : public coro::executor {
   }
 
  private:
+  void enqueue_interrupt(std::function<void()> fn) {
+    const uint32_t mask = __get_PRIMASK();
+    __disable_irq();
+    const size_t next = (isr_write_ + 1) % isr_tasks_.size();
+    if (next == isr_read_) {
+      __set_PRIMASK(mask);
+      std::terminate();  // Never silently discard a coroutine continuation.
+    }
+    isr_tasks_[isr_write_] = std::move(fn);
+    isr_write_ = next;
+    __set_PRIMASK(mask);
+  }
+
+  // Fixed ISR mailbox; moving functions does not allocate. Capacity: eight.
+  std::array<std::function<void()>, 9> isr_tasks_{};
+  size_t isr_read_ = 0;
+  size_t isr_write_ = 0;
+
   uint64_t now_ms() {
     const uint32_t tick = millis();
     // Extend the wrapping millis() counter; poll at least once per wrap period.
@@ -79,5 +127,5 @@ class arduino_executor : public coro::executor {
   uint64_t next_sequence_ = 0;
   uint64_t elapsed_ms_ = 0;
   uint32_t last_tick_ = 0;
-  bool stopped_ = false;
+  std::atomic<bool> stopped_{false};
 };
