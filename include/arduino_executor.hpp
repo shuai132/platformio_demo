@@ -2,10 +2,11 @@
 
 #include <Arduino.h>
 
+#include <algorithm>
 #include <cstdint>
-#include <deque>
 #include <functional>
 #include <utility>
+#include <vector>
 
 #include <coro/executor.hpp>
 
@@ -26,7 +27,8 @@ class arduino_executor : public coro::executor {
     if (!stopped_) {
       // Round up so a sub-millisecond delay does not resume early.
       const uint64_t delay_ms = delay_ns / 1000000 + (delay_ns % 1000000 != 0);
-      tasks_.push_back({now_ms() + delay_ms, std::move(fn)});
+      tasks_.push_back({now_ms() + delay_ms, next_sequence_++, std::move(fn)});
+      std::push_heap(tasks_.begin(), tasks_.end(), later_task{});
     }
   }
 
@@ -39,14 +41,12 @@ class arduino_executor : public coro::executor {
     if (stopped_) {
       return;
     }
-    for (auto it = tasks_.begin(); it != tasks_.end(); ++it) {
-      if (it->ready_ms <= now) {
-        auto fn = std::move(it->fn);
-        tasks_.erase(it);
-        // Remove before resuming: the coroutine may enqueue its next delay.
-        fn();
-        return;
-      }
+    if (!tasks_.empty() && tasks_.front().ready_ms <= now) {
+      std::pop_heap(tasks_.begin(), tasks_.end(), later_task{});
+      auto fn = std::move(tasks_.back().fn);
+      tasks_.pop_back();
+      // Remove before resuming: the coroutine may enqueue its next delay.
+      fn();
     }
   }
 
@@ -61,10 +61,22 @@ class arduino_executor : public coro::executor {
 
   struct pending_task {
     uint64_t ready_ms;
+    uint64_t sequence;
     std::function<void()> fn;
   };
 
-  std::deque<pending_task> tasks_;
+  struct later_task {
+    bool operator()(const pending_task& lhs, const pending_task& rhs) const {
+      if (lhs.ready_ms != rhs.ready_ms) {
+        return lhs.ready_ms > rhs.ready_ms;
+      }
+      return lhs.sequence > rhs.sequence;
+    }
+  };
+
+  // Min-heap: earliest deadline first, FIFO for matching deadlines.
+  std::vector<pending_task> tasks_;
+  uint64_t next_sequence_ = 0;
   uint64_t elapsed_ms_ = 0;
   uint32_t last_tick_ = 0;
   bool stopped_ = false;
