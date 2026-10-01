@@ -13,8 +13,10 @@
 
 #include <coro/executor.hpp>
 
+// STM32 Arduino executor, currently validated by builds for STM32F103/Cortex-M3.
+// Uses CMSIS interrupt control and ordinary Sleep; not a generic Arduino backend.
 // Timers run in the main loop; dispatch/post from an ISR defer work to poll().
-class arduino_executor : public coro::executor {
+class stm32_arduino_executor : public coro::executor {
  public:
   void dispatch(std::function<void()> fn) override {
     if (stopped_) {
@@ -78,6 +80,34 @@ class arduino_executor : public coro::executor {
       // Remove before resuming: the coroutine may enqueue its next delay.
       fn();
     }
+  }
+
+  // Call from the main loop with interrupts enabled. Keep SysTick running:
+  // millis() supplies timer deadlines and its interrupt wakes us for rechecking.
+  void sleep_if_idle() {
+    if (__get_IPSR() != 0 || __get_PRIMASK() != 0 ||
+        __get_BASEPRI() != 0 || __get_FAULTMASK() != 0) {
+      return;
+    }
+
+    const uint32_t interrupt_mask = __get_PRIMASK();
+    __disable_irq();
+    const uint64_t now = now_ms();
+    if (!stopped_ && isr_read_ == isr_write_ &&
+        (tasks_.empty() || tasks_.front().ready_ms > now)) {
+      // Use ordinary Cortex-M Sleep and return to thread mode after wakeup.
+      // Peripheral clocks and wakeup interrupts are configured by the platform
+      // and drivers; the executor does not manage individual peripherals.
+      const uint32_t saved_scr = SCB->SCR;
+      SCB->SCR = saved_scr & ~(SCB_SCR_SLEEPDEEP_Msk | SCB_SCR_SLEEPONEXIT_Msk);
+      __DSB();
+      // A pending enabled IRQ wakes WFI even with PRIMASK set. Its handler
+      // runs after restoring PRIMASK, closing the check-to-sleep race.
+      __WFI();
+      __ISB();
+      SCB->SCR = saved_scr;
+    }
+    __set_PRIMASK(interrupt_mask);
   }
 
  private:

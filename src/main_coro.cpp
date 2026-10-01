@@ -7,14 +7,14 @@
 #include <coro/coro.hpp>
 #include <coro/time.hpp>
 
-#include "arduino_executor.hpp"
+#include "stm32_arduino_executor.hpp"
 #define ADC_DRIVER_IMPLEMENTATION
 #include "async_adc.hpp"
 
 constexpr uint32_t ADC_SAMPLE_RATE_HZ = 100;
 constexpr size_t ADC_SAMPLE_COUNT = 64;
 
-arduino_executor executor;
+stm32_arduino_executor executor;
 
 coro::async<void> blink() {
   pinMode(BLINK_LED, OUTPUT);
@@ -65,6 +65,7 @@ void setup() {
 
 void loop() {
   executor.poll();
+  executor.sleep_if_idle();
 }
 
 #endif
