@@ -50,6 +50,27 @@ class arduino_executor : public coro::executor {
     }
   }
 
+  // Let Arduino background work run only when no callback is ready. Bound the
+  // wait by both the next timer and a short maximum for loop responsiveness.
+  // This yields execution via delay(); it does not enter hardware deep sleep.
+  void sleep_if_idle(uint32_t max_sleep_ms = 10) {
+    if (stopped_ || max_sleep_ms == 0) {
+      return;
+    }
+    const auto now = now_ms();
+    uint64_t wait_ms = max_sleep_ms;
+    for (const auto& task : tasks_) {
+      if (task.deadline_ms <= now) {
+        return;
+      }
+      const auto remaining = task.deadline_ms - now;
+      if (remaining < wait_ms) {
+        wait_ms = remaining;
+      }
+    }
+    delay(static_cast<uint32_t>(wait_ms));
+  }
+
   // Stopping does not cancel or destroy suspended coroutines.
   void stop() override {
     stopped_ = true;

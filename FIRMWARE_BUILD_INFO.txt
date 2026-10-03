@@ -1,5 +1,6 @@
 # esp32-s3-arduino
 
+Executor: arduino_executor
 PLATFORM: Espressif 32 (55.3.30) > 4D Systems GEN4-ESP32 16MB (ESP32S3-R8N16)
 PACKAGES:
  - contrib-piohome @ 3.4.4
@@ -10,10 +11,11 @@ PACKAGES:
  - toolchain-xtensa-esp-elf @ 14.2.0+20241119
 
 RAM:   [=         ]   6.4% (used 20836 bytes from 327680 bytes)
-Flash: [=         ]  10.0% (used 315295 bytes from 3145728 bytes)
+Flash: [=         ]  10.0% (used 315375 bytes from 3145728 bytes)
 
 # esp32-c3-arduino
 
+Executor: arduino_executor
 PLATFORM: Espressif 32 (55.3.30) > Espressif ESP32-C3-DevKitM-1
 PACKAGES:
  - contrib-piohome @ 3.4.4
@@ -24,10 +26,11 @@ PACKAGES:
  - toolchain-riscv32-esp @ 14.2.0+20241119
 
 RAM:   [          ]   3.9% (used 12880 bytes from 327680 bytes)
-Flash: [=         ]  10.0% (used 315018 bytes from 3145728 bytes)
+Flash: [=         ]  10.0% (used 315132 bytes from 3145728 bytes)
 
 # esp32-arduino
 
+Executor: arduino_executor
 PLATFORM: Espressif 32 (55.3.30) > Heltec WiFi Kit 32
 PACKAGES:
  - contrib-piohome @ 3.4.4
@@ -38,10 +41,11 @@ PACKAGES:
  - toolchain-xtensa-esp-elf @ 14.2.0+20241119
 
 RAM:   [=         ]   6.3% (used 20712 bytes from 327680 bytes)
-Flash: [=         ]   9.9% (used 311911 bytes from 3145728 bytes)
+Flash: [=         ]   9.9% (used 311991 bytes from 3145728 bytes)
 
 # esp8266-arduino
 
+Executor: arduino_executor
 PLATFORM: Espressif 8266 (4.2.1) > Heltec Wifi kit 8
 PACKAGES:
  - framework-arduinoespressif8266 @ 3.30102.0 (3.1.2)
@@ -50,4 +54,4 @@ PACKAGES:
  - toolchain-xtensa @ 2.100300.220621 (10.3.0)
 
 RAM:   [===       ]  34.5% (used 28232 bytes from 81920 bytes)
-Flash: [===       ]  25.8% (used 269535 bytes from 1044464 bytes)
+Flash: [===       ]  25.8% (used 269615 bytes from 1044464 bytes)

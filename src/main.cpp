@@ -38,5 +38,5 @@ void setup() {
 
 void loop() {
   executor.poll();
-  delay(1);
+  executor.sleep_if_idle();
 }
