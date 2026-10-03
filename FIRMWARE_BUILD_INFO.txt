@@ -9,8 +9,8 @@ PACKAGES:
  - tool-mklittlefs @ 3.2.0
  - toolchain-xtensa-esp-elf @ 14.2.0+20241119
 
-RAM:   [=         ]   6.3% (used 20804 bytes from 327680 bytes)
-Flash: [=         ]   9.8% (used 309543 bytes from 3145728 bytes)
+RAM:   [=         ]   6.4% (used 20836 bytes from 327680 bytes)
+Flash: [=         ]  10.0% (used 315295 bytes from 3145728 bytes)
 
 # esp32-c3-arduino
 
@@ -23,8 +23,8 @@ PACKAGES:
  - tool-mklittlefs @ 3.2.0
  - toolchain-riscv32-esp @ 14.2.0+20241119
 
-RAM:   [          ]   3.9% (used 12840 bytes from 327680 bytes)
-Flash: [=         ]   9.9% (used 310406 bytes from 3145728 bytes)
+RAM:   [          ]   3.9% (used 12880 bytes from 327680 bytes)
+Flash: [=         ]  10.0% (used 315018 bytes from 3145728 bytes)
 
 # esp32-arduino
 
@@ -37,8 +37,8 @@ PACKAGES:
  - tool-mklittlefs @ 3.2.0
  - toolchain-xtensa-esp-elf @ 14.2.0+20241119
 
-RAM:   [=         ]   6.3% (used 20680 bytes from 327680 bytes)
-Flash: [=         ]   9.7% (used 306339 bytes from 3145728 bytes)
+RAM:   [=         ]   6.3% (used 20712 bytes from 327680 bytes)
+Flash: [=         ]   9.9% (used 311911 bytes from 3145728 bytes)
 
 # esp8266-arduino
 
@@ -49,5 +49,5 @@ PACKAGES:
  - tool-esptoolpy @ 1.30000.201119 (3.0.0)
  - toolchain-xtensa @ 2.100300.220621 (10.3.0)
 
-RAM:   [===       ]  34.4% (used 28168 bytes from 81920 bytes)
-Flash: [===       ]  25.5% (used 266135 bytes from 1044464 bytes)
+RAM:   [===       ]  34.5% (used 28232 bytes from 81920 bytes)
+Flash: [===       ]  25.8% (used 269535 bytes from 1044464 bytes)

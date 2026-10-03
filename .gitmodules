@@ -1,0 +1,3 @@
+[submodule "lib/coro"]
+	path = lib/coro
+	url = https://github.com/shuai132/coro
