@@ -72,7 +72,7 @@ class arduino_executor : public coro::executor {
   }
 
   // Stopping does not cancel or destroy suspended coroutines.
-  void stop() override {
+  void stop() {
     stopped_ = true;
   }
 
