@@ -4,7 +4,7 @@
 with [coro](https://github.com/shuai132/coro). All environments use this C++20 demo.
 
 The ESP32 environments pin [pioarduino](https://github.com/pioarduino/platform-espressif32)
-55.03.30 (Arduino 3.3.0, GCC 14.2) for C++20 coroutine support.
+55.03.312-1 (Arduino 3.3.12, GCC 14.2) for C++20 coroutine support.
 The official `espressif32` 6.11.0 Arduino environment uses GCC 8.4,
 which cannot build this demo. pioarduino is a community-maintained
 ESP32 platform compatible with PlatformIO. The ESP8266 environment pins

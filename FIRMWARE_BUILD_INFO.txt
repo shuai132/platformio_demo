@@ -1,47 +1,47 @@
 # esp32-s3-arduino
 
 Executor: arduino_executor
-PLATFORM: Espressif 32 (55.3.30) > 4D Systems GEN4-ESP32 16MB (ESP32S3-R8N16)
+PLATFORM: Espressif 32 (55.3.312) > 4D Systems GEN4-ESP32 16MB (ESP32S3-R8N16)
 PACKAGES:
  - contrib-piohome @ 3.4.4
- - framework-arduinoespressif32 @ 3.3.0
- - framework-arduinoespressif32-libs @ 5.5.0+sha.b66b5448e0
- - tool-esptoolpy @ 5.0.1
- - tool-mklittlefs @ 3.2.0
- - toolchain-xtensa-esp-elf @ 14.2.0+20241119
+ - framework-arduinoespressif32 @ 3.3.12
+ - framework-arduinoespressif32-libs @ 5.5.5+sha.b774170ff46
+ - tool-esptoolpy @ 5.4.0
+ - tool-xtensa-esp-elf-gdb @ 17.1.0+20260402
+ - toolchain-xtensa-esp-elf @ 14.2.0+20260121
 
-RAM:   [=         ]   6.4% (used 20836 bytes from 327680 bytes)
-Flash: [=         ]  10.0% (used 315375 bytes from 3145728 bytes)
+RAM:   [=         ]   6.8% (used 22444 bytes from 327680 bytes)
+Flash: [=         ]   9.1% (used 286511 bytes from 3145728 bytes)
 
 # esp32-c3-arduino
 
 Executor: arduino_executor
-PLATFORM: Espressif 32 (55.3.30) > Espressif ESP32-C3-DevKitM-1
+PLATFORM: Espressif 32 (55.3.312) > Espressif ESP32-C3-DevKitM-1
 PACKAGES:
  - contrib-piohome @ 3.4.4
- - framework-arduinoespressif32 @ 3.3.0
- - framework-arduinoespressif32-libs @ 5.5.0+sha.b66b5448e0
- - tool-esptoolpy @ 5.0.1
- - tool-mklittlefs @ 3.2.0
- - toolchain-riscv32-esp @ 14.2.0+20241119
+ - framework-arduinoespressif32 @ 3.3.12
+ - framework-arduinoespressif32-libs @ 5.5.5+sha.b774170ff46
+ - tool-esptoolpy @ 5.4.0
+ - tool-riscv32-esp-elf-gdb @ 17.1.0+20260402
+ - toolchain-riscv32-esp @ 14.2.0+20260121
 
-RAM:   [          ]   3.9% (used 12880 bytes from 327680 bytes)
-Flash: [=         ]  10.0% (used 315132 bytes from 3145728 bytes)
+RAM:   [          ]   4.4% (used 14452 bytes from 327680 bytes)
+Flash: [=         ]   9.8% (used 309020 bytes from 3145728 bytes)
 
 # esp32-arduino
 
 Executor: arduino_executor
-PLATFORM: Espressif 32 (55.3.30) > Heltec WiFi Kit 32
+PLATFORM: Espressif 32 (55.3.312) > Heltec WiFi Kit 32
 PACKAGES:
  - contrib-piohome @ 3.4.4
- - framework-arduinoespressif32 @ 3.3.0
- - framework-arduinoespressif32-libs @ 5.5.0+sha.b66b5448e0
- - tool-esptoolpy @ 5.0.1
- - tool-mklittlefs @ 3.2.0
- - toolchain-xtensa-esp-elf @ 14.2.0+20241119
+ - framework-arduinoespressif32 @ 3.3.12
+ - framework-arduinoespressif32-libs @ 5.5.5+sha.b774170ff46
+ - tool-esptoolpy @ 5.4.0
+ - tool-xtensa-esp-elf-gdb @ 17.1.0+20260402
+ - toolchain-xtensa-esp-elf @ 14.2.0+20260121
 
-RAM:   [=         ]   6.3% (used 20712 bytes from 327680 bytes)
-Flash: [=         ]   9.9% (used 311991 bytes from 3145728 bytes)
+RAM:   [=         ]   6.8% (used 22276 bytes from 327680 bytes)
+Flash: [=         ]   9.0% (used 282988 bytes from 3145728 bytes)
 
 # esp8266-arduino
 
