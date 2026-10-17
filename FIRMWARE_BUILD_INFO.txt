@@ -1,6 +1,5 @@
 # esp32-s3-arduino
 
-Executor: arduino_executor
 PLATFORM: Espressif 32 (55.3.312) > 4D Systems GEN4-ESP32 16MB (ESP32S3-R8N16)
 PACKAGES:
  - contrib-piohome @ 3.4.4
@@ -15,7 +14,6 @@ Flash: [=         ]   9.1% (used 286511 bytes from 3145728 bytes)
 
 # esp32-c3-arduino
 
-Executor: arduino_executor
 PLATFORM: Espressif 32 (55.3.312) > Espressif ESP32-C3-DevKitM-1
 PACKAGES:
  - contrib-piohome @ 3.4.4
@@ -30,7 +28,6 @@ Flash: [=         ]   9.8% (used 309020 bytes from 3145728 bytes)
 
 # esp32-arduino
 
-Executor: arduino_executor
 PLATFORM: Espressif 32 (55.3.312) > Heltec WiFi Kit 32
 PACKAGES:
  - contrib-piohome @ 3.4.4
@@ -45,7 +42,6 @@ Flash: [=         ]   9.0% (used 282988 bytes from 3145728 bytes)
 
 # esp8266-arduino
 
-Executor: arduino_executor
 PLATFORM: Espressif 8266 (4.2.1) > Heltec Wifi kit 8
 PACKAGES:
  - framework-arduinoespressif8266 @ 3.30102.0 (3.1.2)
