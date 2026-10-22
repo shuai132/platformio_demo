@@ -14,14 +14,43 @@ On Apple Silicon, the ESP8266 GCC 10.3 toolchain requires Rosetta 2 because
 its macOS binaries are x86_64. A `Bad CPU type in executable` error means
 that the host cannot run the installed toolchain.
 
-All environments use the single-threaded Arduino executor.
-It uses `millis()` timers with millisecond resolution and
-runs one ready callback per `loop()` iteration. `sleep_if_idle()` waits only when
-no callback is ready, for up to 10 ms or the next timer, whichever comes first.
-It uses Arduino `delay()` to yield execution, rather than hardware deep sleep.
-Use the executor only from the loop task,
-never from another task or ISR. `stop()` stops polling; it does not cancel
-suspended coroutines.
+## Architecture
+
+`src/main.cpp` selects the platform driver and starts the application
+coroutines. One shared scheduling queue serves the two existing platform
+drivers, keeping scheduling policy separate from platform wake-up APIs.
+
+| Component | Responsibility | Dependencies |
+| --- | --- | --- |
+| `timed_executor` | Common coroutine queue, delayed dispatch, absolute deadlines and stop state | `coro`, standard C++ |
+| `esp32_executor` | Drive the queue with one-shot `esp_timer` callbacks and a 64-bit microsecond clock | `timed_executor`, ESP-IDF |
+| `arduino_executor` | Drive the queue through `poll()` and `sleep_if_idle()`; extend the wrapping `micros()` clock | `timed_executor`, Arduino |
+
+The application components depend on `timed_executor`, so they use the same
+code with either platform driver. The common queue has no platform macros or
+GPIO logic. Drivers decide when to run callbacks; application coroutines decide
+what work to schedule.
+
+On ESP32, `setup()` queues all coroutines and then calls `executor.start()` as
+its final executor operation. This transfers queue ownership to the
+high-priority `ESP_TIMER_TASK` task. Each timer wake runs up to 32 ready
+callbacks, then rearms for the nearest deadline. Time comes directly from
+`esp_timer_get_time()`. The driver exposes no polling API. `loop()` simply
+uses `delay(1000)`; coroutine scheduling continues independently of the loop
+task, including Arduino's automatic two-second yield on single-core ESP32.
+
+On ESP8266, the loop task owns the executor and calls `poll()` followed by
+`sleep_if_idle()`. Idle waits reserve 1 ms before the next deadline; shorter
+waits return for continued polling. Longer waits use Arduino `delay()`.
+
+Both drivers require a single owner. After ESP32 `start()`, access the
+executor and coroutine state only from executor callbacks; do not
+post from `loop()`, another task or an ISR. Callbacks must be short and
+nonblocking because ESP timer callbacks share one task. The callback budget
+bounds the number of callbacks per wake, not the duration of user code.
+Keep the executor and detached coroutines alive for the timer's lifetime.
+`stop()` stops dispatch; it does not destroy suspended coroutines or support
+restarting the executor.
 
 `src/esp8266_atomic.cpp` supplies the two missing 32-bit libatomic operations
 used by `coro::delay()` on ESP8266, using interrupt exclusion. GCC 10.3 still
