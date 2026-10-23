@@ -1,58 +1,58 @@
-#include <Arduino.h>
-
 #include <coro/coro.hpp>
 
-#if defined(ARDUINO_ARCH_ESP32)
-#include "esp32_executor.hpp"
-#else
-#include "arduino_executor.hpp"
-#endif
 #include "breathing_led.hpp"
+#include "cooperative_executor.hpp"
+#include "demo_config.hpp"
+#include "platform_io.hpp"
 #include "software_pwm.hpp"
+#if defined(ARDUINO_ARCH_ESP32)
+#include "esp32_executor_runner.hpp"
+#endif
 
 namespace {
-
-// ESP32 transfers executor ownership to the esp_timer task after setup.
+cooperative_executor executor;
 #if defined(ARDUINO_ARCH_ESP32)
-esp32_executor executor;
-#else
-arduino_executor executor;
+esp32_executor_runner pwm_runner(executor);
 #endif
-
-// At the 3% floor, 200 Hz leaves a 150 us pulse for task-based scheduling.
-using led_pwm = software_pwm<200>;
-led_pwm pwm_channels[] = {{executor, 4}, {executor, 5}, {executor, 3}};
-// PWM duty in per mille: 300 limits the peak to 30% duty.
-constexpr uint16_t max_led_duty = 300;
-breathing_led<led_pwm> leds[] = {
-    {executor, pwm_channels[0], 3000, 0, max_led_duty},
-    {executor, pwm_channels[1], 3000, 1000, max_led_duty},
-    {executor, pwm_channels[2], 3000, 2000, max_led_duty},
-};
-
-}  // namespace
-
-void setup() {
-  Serial.begin(115200);
-  Serial.println("coro start");
-
-  for (auto& pwm : pwm_channels) {
-    coro::spawn(executor, pwm.run());
-  }
-  for (auto& led : leds) {
-    coro::spawn(executor, led.run());
+constexpr auto& config = demo_config::leds;
+software_pwm pwm_outputs[] = {{config[0].pin, config[0].pwm_hz}, {config[1].pin, config[1].pwm_hz}, {config[2].pin, config[2].pwm_hz}};
+breathing_led leds[] = {{pwm_outputs[0], config[0].breathing_ms, config[0].max_brightness},
+                        {pwm_outputs[1], config[1].breathing_ms, config[1].max_brightness},
+                        {pwm_outputs[2], config[2].breathing_ms, config[2].max_brightness}};
+static_assert(sizeof(pwm_outputs) / sizeof(pwm_outputs[0]) == demo_config::led_count);
+static_assert(sizeof(leds) / sizeof(leds[0]) == demo_config::led_count);
+void configure_outputs() {
+  pwm_platform::console_begin();
+  for (size_t i = 0; i < demo_config::led_count; ++i) {
+    if (!pwm_outputs[i].begin()) {
+      pwm_platform::log("Invalid PWM configuration");
+      continue;
+    }
+    coro::spawn(executor, pwm_outputs[i].run(executor, config[i].pwm_phase_us));
+    coro::spawn(executor, leds[i].run(executor));
   }
 #if defined(ARDUINO_ARCH_ESP32)
-  executor.start();
+  if (!pwm_runner.start()) {
+    for (auto& pwm : pwm_outputs) pwm.stop();
+    pwm_platform::log("Failed to start PWM executor timer");
+  }
 #endif
 }
-
+}  // namespace
+#if defined(DEMO_BAREMETAL_C3)
+int main() {
+  configure_outputs();
+  for (;;) executor.poll();
+}
+#else
+void setup() {
+  configure_outputs();
+}
 void loop() {
 #if defined(ARDUINO_ARCH_ESP32)
-  // PWM coroutines keep running even while this task is blocked.
   delay(1000);
 #else
   executor.poll();
-  executor.sleep_if_idle();
 #endif
 }
+#endif
