@@ -1,63 +1,113 @@
 # platformio_demo
 
-`src/main.cpp` demonstrates concurrent LED blinking and serial heartbeats
-with [coro](https://github.com/shuai132/coro). All environments use this C++20 demo.
+Three coroutine-driven software PWM channels on GPIO 3, 4 and 5, using
+[coro](https://github.com/shuai132/coro). Each carrier runs at 1000 Hz. The
+breathing periods are 2, 3 and 4.5 seconds; peak duty is 30%. Each LED fades
+all the way to off. Connect active-high LEDs through current-limiting
+resistors to the GPIOs, with their cathodes connected to GND. Check the
+pinout of the actual board before wiring.
 
-The ESP32 environments pin [pioarduino](https://github.com/pioarduino/platform-espressif32)
-55.03.312-1 (Arduino 3.3.12, GCC 14.2) for C++20 coroutine support.
-The official `espressif32` 6.11.0 Arduino environment uses GCC 8.4,
-which cannot build this demo. pioarduino is a community-maintained
-ESP32 platform compatible with PlatformIO. The ESP8266 environment pins
-the official espressif8266 platform to 4.2.1.
+## Components
 
-On Apple Silicon, the ESP8266 GCC 10.3 toolchain requires Rosetta 2 because
-its macOS binaries are x86_64. A `Bad CPU type in executable` error means
-that the host cannot run the installed toolchain.
+| File | Responsibility |
+| --- | --- |
+| `include/software_pwm.hpp` | Pin, frequency, duty, PWM edges and stop/restart |
+| `include/breathing_led.hpp` | Brightness curve and breathing period |
+| `include/cooperative_executor.hpp` | Single-owner coroutine scheduling with absolute deadlines |
+| `include/platform_io.hpp` | Select the platform adapter |
+| `include/arduino_platform.hpp` | Arduino clock, GPIO and console adapter |
+| `src/main.cpp` | Construct components and start platform execution |
+| `include/esp32_executor_runner.hpp` | Run Arduino ESP32 coroutines from `ESP_TIMER_TASK` |
+| `baremetal/esp32c3/` | C3 startup, RAM linker layout, single-thread runtime and image builder |
+| `include/demo_config.hpp` | Pins, PWM frequencies, phase offsets and breathing configuration |
 
-## Architecture
+The PWM API is separate from the breathing animation:
 
-`src/main.cpp` selects the platform driver and starts the application
-coroutines. One shared scheduling queue serves the two existing platform
-drivers, keeping scheduling policy separate from platform wake-up APIs.
+```cpp
+software_pwm pwm(3, 1000);              // GPIO, frequency in Hz (1–1000)
+breathing_led led(pwm, 2000, 300);      // PWM, period in ms, peak duty per mille
+if (pwm.begin()) {
+  coro::spawn(executor, pwm.run(executor));
+  coro::spawn(executor, led.run(executor));
+}
+```
 
-| Component | Responsibility | Dependencies |
-| --- | --- | --- |
-| `timed_executor` | Common coroutine queue, delayed dispatch, absolute deadlines and stop state | `coro`, standard C++ |
-| `esp32_executor` | Drive the queue with one-shot `esp_timer` callbacks and a 64-bit microsecond clock | `timed_executor`, ESP-IDF |
-| `arduino_executor` | Drive the queue through `poll()` and `sleep_if_idle()`; extend the wrapping `micros()` clock | `timed_executor`, Arduino |
+`set_duty(0..1000)` accepts per-mille duty; `set_duty_ppm(0..1000000)`
+preserves finer steps near darkness. Values above the range are clamped.
+`breathing_led` updates every 1 ms, computes a quadratic curve with Q16
+brightness precision, and applies its configurable peak through
+`set_max_brightness()`. The animation owns brightness changes while running;
+manual PWM duty changes may be overwritten by its next update.
 
-The application components depend on `timed_executor`, so they use the same
-code with either platform driver. The common queue has no platform macros or
-GPIO logic. Drivers decide when to run callbacks; application coroutines decide
-what work to schedule.
+`software_pwm::stop()` immediately drives the pin low. Its suspended `run()`
+coroutine exits on its next scheduled wake; `is_running()` remains true until
+that happens. To restart, wait for it to become false, call `begin()`, set
+new duty and spawn `run()` again. A submitted coroutine that has not started
+also requires the PWM object to remain alive. Keep the executor, PWM and
+animation objects alive for all their submitted coroutines. The demo uses
+static objects. The breathing coroutine runs continuously; stopping its PWM
+does not destroy the animation coroutine.
 
-On ESP32, `setup()` queues all coroutines and then calls `executor.start()` as
-its final executor operation. This transfers queue ownership to the
-high-priority `ESP_TIMER_TASK` task. Each timer wake runs up to 32 ready
-callbacks, then rearms for the nearest deadline. Time comes directly from
-`esp_timer_get_time()`. The driver exposes no polling API. `loop()` simply
-uses `delay(1000)`; coroutine scheduling continues independently of the loop
-task, including Arduino's automatic two-second yield on single-core ESP32.
+The optional second `run(executor, phase_us)` argument offsets the carrier.
+The demo uses offsets 0, 333 and 666 us. At its 30% peak the three pulse
+windows do not overlap under normal scheduling. All operations belong to
+one executor owner; do not manipulate the PWM or queue concurrently from
+another task or an ISR. `cooperative_executor::stop()` stops dispatch only,
+without cancelling or destroying suspended coroutines. Poll the extended
+microsecond clock at least once per 32-bit clock wrap (about 71 minutes).
 
-On ESP8266, the loop task owns the executor and calls `poll()` followed by
-`sleep_if_idle()`. Idle waits reserve 1 ms before the next deadline; shorter
-waits return for continued polling. Longer waits use Arduino `delay()`.
+## ESP32-C3 bare metal
 
-Both drivers require a single owner. After ESP32 `start()`, access the
-executor and coroutine state only from executor callbacks; do not
-post from `loop()`, another task or an ISR. Callbacks must be short and
-nonblocking because ESP timer callbacks share one task. The callback budget
-bounds the number of callbacks per wake, not the duration of user code.
-Keep the executor and detached coroutines alive for the timer's lifetime.
-`stop()` stops dispatch; it does not destroy suspended coroutines or support
-restarting the executor.
+`esp32-c3-baremetal` uses no Arduino, ESP-IDF application framework or RTOS.
+The ROM bootloader loads a RAM-only image from flash offset `0x0`, then
+starts the custom assembly entry. There is no application second-stage
+bootloader, partition table or flash MMU setup. C++ constructors run before
+`main()`. The program continuously polls the cooperative executor with
+interrupts disabled. The CPU runs directly from the 40 MHz crystal; the
+runtime calibrates its cycle counter against the system timer at startup.
 
-`src/esp8266_atomic.cpp` supplies the two missing 32-bit libatomic operations
-used by `coro::delay()` on ESP8266, using interrupt exclusion. GCC 10.3 still
-has upstream coroutine regression failures; a successful build of this demo
-does not establish full library compatibility.
+For short pulses, the C3 adapter uses the cycle counter to wait directly for
+the falling edge. Longer pulses suspend until 16 us before their target,
+then wait for the remaining cycles. This avoids coroutine dispatch overhead
+at the falling edge of very short dark-end pulses. Cycle-counter resolution
+is 25 ns at 40 MHz, but GPIO instructions and bus latency still impose a
+minimum physical pulse width; this is not a claim of 25 ns output accuracy.
+
+The linker reserves 32 KiB for the heap and 16 KiB for the stack. These
+reservations are included in the reported RAM usage. `scripts/verify_baremetal.py`
+checks the RAM layout, unresolved symbols, accidental RTOS/thread/exception
+linkage and the ROM image's checksum and SHA-256 digest. The runtime uses
+single-thread libc/C++ support tied to the pinned GCC 14 toolchain.
 
 ```sh
 git submodule update --init --recursive
-pio run -e esp32-s3-arduino
+pio run -e esp32-c3-baremetal
+pio run -e esp32-c3-baremetal -t upload
+pio device monitor -b 115200
 ```
+
+Flashing this environment replaces the image at flash offset `0x0`. Returning
+to an Arduino application requires uploading its normal bootloader,
+partition table and firmware. Select pins 0–21 valid for the particular C3
+board; the low-level C3 GPIO adapter does not validate pin numbers.
+
+## Other environments
+
+The S3 and original ESP32 environments retain Arduino. Their one-shot
+`esp_timer` runner owns the executor after `setup()`, so PWM continues while
+Arduino's loop task waits. It waits actively for deadlines within 25 us and
+rearms the timer after a 100 us callback budget. User callbacks must be short
+and nonblocking. Interrupts and other timer callbacks can still cause jitter.
+ESP8266 polls directly from `loop()` without idle delays. Arduino adapters
+have microsecond pulse resolution and less dark-end precision than the C3
+bare-metal adapter. Missed PWM periods are skipped instead of replayed.
+No environment uses LEDC or executes coroutines in an ISR.
+
+ESP32 environments pin pioarduino 55.03.312-1 (GCC 14.2); Arduino environments
+use Arduino 3.3.12. ESP8266 pins espressif8266 4.2.1. Its macOS GCC 10.3
+binaries require Rosetta 2 on Apple Silicon. `src/esp8266_atomic.cpp` supplies
+two missing 32-bit atomic operations. A successful demo build does not
+establish complete compatibility of GCC 10.3 with the coroutine library.
+
+Physical pulse timing and perceived brightness require verification on the
+board with a logic analyzer and the actual LEDs.

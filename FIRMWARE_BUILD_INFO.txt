@@ -9,22 +9,20 @@ PACKAGES:
  - tool-xtensa-esp-elf-gdb @ 17.1.0+20260402
  - toolchain-xtensa-esp-elf @ 14.2.0+20260121
 
-RAM:   [=         ]   6.8% (used 22436 bytes from 327680 bytes)
-Flash: [=         ]   9.1% (used 286747 bytes from 3145728 bytes)
+RAM:   [=         ]   6.9% (used 22596 bytes from 327680 bytes)
+Flash: [=         ]   9.1% (used 286607 bytes from 3145728 bytes)
 
-# esp32-c3-arduino
+# esp32-c3-baremetal
 
 PLATFORM: Espressif 32 (55.3.312) > Espressif ESP32-C3-DevKitM-1
 PACKAGES:
  - contrib-piohome @ 3.4.4
- - framework-arduinoespressif32 @ 3.3.12
- - framework-arduinoespressif32-libs @ 5.5.5+sha.b774170ff46
  - tool-esptoolpy @ 5.4.0
  - tool-riscv32-esp-elf-gdb @ 17.1.0+20260402
  - toolchain-riscv32-esp @ 14.2.0+20260121
 
-RAM:   [          ]   4.4% (used 14436 bytes from 327680 bytes)
-Flash: [=         ]   9.8% (used 309184 bytes from 3145728 bytes)
+RAM:   [==        ]  19.2% (used 50320 bytes from 262144 bytes)
+Flash: [          ]   0.2% (used 8384 bytes from 4194304 bytes)
 
 # esp32-arduino
 
@@ -37,8 +35,8 @@ PACKAGES:
  - tool-xtensa-esp-elf-gdb @ 17.1.0+20260402
  - toolchain-xtensa-esp-elf @ 14.2.0+20260121
 
-RAM:   [=         ]   6.8% (used 22268 bytes from 327680 bytes)
-Flash: [=         ]   9.0% (used 283224 bytes from 3145728 bytes)
+RAM:   [=         ]   6.8% (used 22428 bytes from 327680 bytes)
+Flash: [=         ]   9.0% (used 283132 bytes from 3145728 bytes)
 
 # esp8266-arduino
 
@@ -49,5 +47,5 @@ PACKAGES:
  - tool-esptoolpy @ 1.30000.201119 (3.0.0)
  - toolchain-xtensa @ 2.100300.220621 (10.3.0)
 
-RAM:   [===       ]  34.5% (used 28232 bytes from 81920 bytes)
-Flash: [===       ]  25.8% (used 269607 bytes from 1044464 bytes)
+RAM:   [===       ]  34.7% (used 28424 bytes from 81920 bytes)
+Flash: [===       ]  25.8% (used 269559 bytes from 1044464 bytes)
