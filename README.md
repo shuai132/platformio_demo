@@ -1,15 +1,17 @@
 # platformio_demo
 
-`src/main.cpp` drives three breathing LEDs on GPIO 4, 5 and 6 using
+`src/main.cpp` drives three breathing LEDs on GPIO 4, 5 and 3 using
 [coro](https://github.com/shuai132/coro). All environments use this C++20 demo.
 
-- `software_pwm<1000>` owns GPIO output and produces a nominal 1000 Hz
-  software PWM carrier (1000 us period). `set_duty()` accepts 0–1000 per mille,
+- `software_pwm<200>` owns GPIO output and produces a nominal 200 Hz
+  software PWM carrier (5000 us period). `set_duty()` accepts 0–1000 per mille,
   including fully off/on, and takes effect on the next cycle.
 - `breathing_led<Pwm>` changes duty every 10 ms with a quadratic brightness
-  curve scaled to a configurable maximum PWM duty (the fifth constructor
-  argument, clamped to 0–1000). The demo sets `max_led_duty = 300` in
-  `src/main.cpp`, limiting the peak to 30% duty. This scales the whole curve
+  curve scaled between configurable minimum and maximum PWM duty (the sixth
+  and fifth constructor arguments, respectively). The minimum defaults to 30
+  and is clamped to the maximum; the maximum is clamped to 0–1000.
+  The demo sets `max_led_duty = 300` in
+  `src/main.cpp`, giving a 3% floor and a 30% peak. This scales the whole curve
   instead of clipping the peak into a plateau; duty percentage is not a
   measurement of perceived brightness. Each breath lasts 3 seconds; the three
   instances start at phases 0, 1 and 2 seconds. Set all phase arguments to zero for synchronized breathing.
@@ -77,7 +79,9 @@ PWM and animation use absolute deadlines to avoid cumulative drift; late PWM
 resumes skip missed edges. This remains coro software PWM, with no LEDC and no
 coroutine execution in an ISR. Interrupts, higher-priority work, shared timer
 callbacks and timer dispatch overhead can still cause jitter, especially for
-very short pulses near 0%/100% duty. The nominal 1000 Hz carrier is not a hard
+very short pulses near 0%/100% duty. At the demo's 3% floor, the 200 Hz carrier
+gives a 150 us pulse instead of the 30 us pulse at 1000 Hz, reducing sensitivity
+to dispatch latency. The nominal 200 Hz carrier is not a hard
 real-time guarantee; measure GPIO edges with a logic analyzer for hardware QA.
 
 `src/esp8266_atomic.cpp` supplies the two missing 32-bit libatomic operations

@@ -19,8 +19,9 @@ esp32_executor executor;
 arduino_executor executor;
 #endif
 
-using led_pwm = software_pwm<1000>;
-led_pwm pwm_channels[] = {{executor, 4}, {executor, 5}, {executor, 6}};
+// At the 3% floor, 200 Hz leaves a 150 us pulse for task-based scheduling.
+using led_pwm = software_pwm<200>;
+led_pwm pwm_channels[] = {{executor, 4}, {executor, 5}, {executor, 3}};
 // PWM duty in per mille: 300 limits the peak to 30% duty.
 constexpr uint16_t max_led_duty = 300;
 breathing_led<led_pwm> leds[] = {

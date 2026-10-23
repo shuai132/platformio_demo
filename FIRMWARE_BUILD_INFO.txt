@@ -10,7 +10,7 @@ PACKAGES:
  - toolchain-xtensa-esp-elf @ 14.2.0+20260121
 
 RAM:   [=         ]   6.9% (used 22556 bytes from 327680 bytes)
-Flash: [=         ]   9.1% (used 287167 bytes from 3145728 bytes)
+Flash: [=         ]   9.1% (used 287203 bytes from 3145728 bytes)
 
 # esp32-c3-arduino
 
@@ -24,7 +24,7 @@ PACKAGES:
  - toolchain-riscv32-esp @ 14.2.0+20260121
 
 RAM:   [          ]   4.4% (used 14564 bytes from 327680 bytes)
-Flash: [=         ]   9.9% (used 309882 bytes from 3145728 bytes)
+Flash: [=         ]   9.9% (used 309918 bytes from 3145728 bytes)
 
 # esp32-arduino
 
@@ -38,7 +38,7 @@ PACKAGES:
  - toolchain-xtensa-esp-elf @ 14.2.0+20260121
 
 RAM:   [=         ]   6.8% (used 22388 bytes from 327680 bytes)
-Flash: [=         ]   9.0% (used 283684 bytes from 3145728 bytes)
+Flash: [=         ]   9.0% (used 283708 bytes from 3145728 bytes)
 
 # esp8266-arduino
 
@@ -50,4 +50,4 @@ PACKAGES:
  - toolchain-xtensa @ 2.100300.220621 (10.3.0)
 
 RAM:   [===       ]  34.6% (used 28352 bytes from 81920 bytes)
-Flash: [===       ]  25.9% (used 270239 bytes from 1044464 bytes)
+Flash: [===       ]  25.9% (used 270287 bytes from 1044464 bytes)
