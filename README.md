@@ -149,3 +149,9 @@ establish complete compatibility of GCC 10.3 with the coroutine library.
 
 Physical pulse timing and perceived brightness require verification on the
 board with a logic analyzer and the actual LEDs.
+
+## Software PWM experiments
+
+See [the experiment record](docs/PWM_EXPERIMENTS.md) for the dedicated-task,
+maximum-priority and interrupt-disabled trials and their observed limitations.
+The Arduino target retains normal `esp_timer` dispatch, interrupts and watchdogs.
